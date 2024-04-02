@@ -2,6 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import random
 import pickle
+import albumentations as albu
+from PIL import Image
 
 def LoadBatch(filename):
 	""" Copied from the dataset website """
@@ -10,11 +12,18 @@ def LoadBatch(filename):
 	return dict
 
 def Preprocess(data):
-	X = np.array(data[b"data"]).T[:, :size]
+	X = np.array(data[b"data"])
 
-	labels = np.array(data[b"labels"])[:size]
+	transform = albu.HorizontalFlip(p=0.5)
+	X = X.reshape(10000, 3, 32, 32)
+	X = X.transpose(0,2,3,1).astype("uint8")
+	X = [transform(image=x)["image"] for x in X]
+
+	X = np.array(X).transpose(0,3,1,2).astype("uint8").reshape(10000, 3*32*32).T
+
+	labels = np.array(data[b"labels"])
 	Y = CreateOneHot(labels).T
-	print(X.shape, "X shape")
+
 	x_mean = np.mean(X, axis=1).reshape(3072, 1)
 	X = X - x_mean
 
@@ -147,17 +156,16 @@ def MiniBatchGD(X_train, Y_train, labels_train, X_val, Y_val, labels_val, W, b, 
 	return {"W": W, "b": b, "costs_train": costs_train, "accuracies_train": accuracies_train, "costs_val": costs_val, "losses_train": losses_train, "losses_val": losses_val, "accuracies_val": accuracies_val}	
 
 def Visualize(data):
-    # reshape the data
-    data = data.reshape(10000, 3, 32, 32).transpose(0,2,3,1).astype("uint8")
+	data = data.reshape(3, 32, 32,10000).transpose(3,1,2,0).astype("uint8")
     # plot the data
-    plt.figure(figsize=(10,10))
-    for i in range(25):
-        plt.subplot(5,5,i+1)
-        plt.xticks([])
-        plt.yticks([])
-        plt.grid(False)
-        plt.imshow(data[random.randint(0, 9999)])
-    plt.show()
+	plt.figure(figsize=(10,10))
+	for i in range(25):
+		plt.subplot(5,5,i+1)
+		plt.xticks([])
+		plt.yticks([])
+		plt.grid(False)
+		plt.imshow(data[random.randint(0, 9999)])
+	plt.show()
 
 def Montage(W):
 	""" Display the image for each label in W """
@@ -171,71 +179,74 @@ def Montage(W):
 			ax[i][j].set_title("y="+str(5*i+j))
 			ax[i][j].axis('off')
 
-training_data_file = 'assignment1/Datasets/data_batch_1'
-validation_data_file = 'assignment1/Datasets/data_batch_2'
+training_data_1 = 'assignment1/Datasets/data_batch_1'
+training_data_2 = 'assignment1/Datasets/data_batch_2'
+training_data_3 = 'assignment1/Datasets/data_batch_3'
+training_data_4 = 'assignment1/Datasets/data_batch_4'
+training_data_5 = 'assignment1/Datasets/data_batch_5'
+
 test_data_file = 'assignment1/Datasets/test_batch'
 
 np.random.seed(0)
 size = 10000
-lambda_ = 1 #0, 0, 0.1, 1
+lambda_ = 0.1 #0, 0, 0.1, 1
 eta = 0.001 #0.1, 0.001, 0.001, 0.001
 n_batch = 100
 n_epochs = 40
 
-training_data = LoadBatch(training_data_file)
-validation_data = LoadBatch(validation_data_file)
+training_data_1 = LoadBatch(training_data_1)
+training_data_2 = LoadBatch(training_data_2)
+training_data_3 = LoadBatch(training_data_3)
+training_data_4 = LoadBatch(training_data_4)
+training_data_5 = LoadBatch(training_data_5)
+
 test_data = LoadBatch(test_data_file)
 
-X_train, Y_train, labels_train = Preprocess(training_data)
-X_val, Y_val, labels_val = Preprocess(validation_data)
+X_train_1, Y_train_1, labels_train_1 = Preprocess(training_data_1)
+X_train_2, Y_train_2, labels_train_2 = Preprocess(training_data_2)
+X_train_3, Y_train_3, labels_train_3 = Preprocess(training_data_3)
+X_train_4, Y_train_4, labels_train_4 = Preprocess(training_data_4)
+X_train_5, Y_train_5, labels_train_5 = Preprocess(training_data_5)
+
+X_train = np.concatenate((X_train_1, X_train_2), axis=1)#, X_train_3, X_train_4, X_train_5), axis=1)
+Y_train = np.concatenate((Y_train_1, Y_train_2), axis=1)#, Y_train_3, Y_train_4, Y_train_5), axis=1)
+labels_train = np.concatenate((labels_train_1, labels_train_2))#, labels_train_3, labels_train_4, labels_train_5))
+
+#Randomly cut out 1000 samples for validation
+indices = np.random.permutation(X_train.shape[1])
+X_val = X_train[:, indices[:1000]]
+Y_val = Y_train[:, indices[:1000]]
+labels_val = labels_train[indices[:1000]]
+
+X_train = X_train[:, indices[1000:]]
+Y_train = Y_train[:, indices[1000:]]
+labels_train = labels_train[indices[1000:]]
+
+print(X_train.shape, Y_train.shape, labels_train.shape)
+
+# print(X_train.shape, Y_train.shape, labels_train.shape)
+# print(X_val.shape, Y_val.shape, labels_val.shape)
+
 X_test, Y_test, labels_test = Preprocess(test_data)
 
-# W = np.random.normal(0, 0.01, (10, 3072))
-# b = np.random.normal(0, 0.01, (10, 1))
+W = np.random.normal(0, 0.01, (10, 3072))
+b = np.random.normal(0, 0.01, (10, 1))
 
-# res_dict = MiniBatchGD(X_train, Y_train, labels_train, X_val, Y_val, labels_val, W, b, lambda_, n_batch, eta, n_epochs)
+res_dict = MiniBatchGD(X_train, Y_train, labels_train, X_val, Y_val, labels_val, W, b, lambda_, n_batch, eta, n_epochs)
 
-# test_accuracy = ComputeAccuracy(X_test, labels_test, res_dict["W"], res_dict["b"])
-# print("Test accuracy: ", test_accuracy)
+test_accuracy = ComputeAccuracy(X_test, labels_test, res_dict["W"], res_dict["b"])
+print("Test accuracy: ", test_accuracy)
 
-# Montage(res_dict["W"])
+Montage(res_dict["W"])
 
-# #plot the cost to a new plot
-# plt.figure()
-# plt.plot(res_dict["costs_train"], label="Training cost")
-# plt.plot(res_dict["costs_val"], label="Validation cost")
-# plt.plot(res_dict["losses_train"], label="Training loss")
-# plt.plot(res_dict["losses_val"], label="Validation loss")
-# plt.title("Training cost vs Validation cost")
-# plt.legend()
-# plt.xlabel("Epoch")
-# plt.ylabel("Cost")
-# plt.show()
-
-
-
-###### dev stuff
-# P = EvaluateClassifier(X, W, b)
-
-# cost, loss = CalculateCost(X, Y, W, b, lambda_)
-
-# accuracy = ComputeAccuracy(X, labels, W, b)
-
-# grad_W, grad_b = ComputeGradients(X, Y, W, lambda_)
-# # print("grad_W: ", grad_W, "grad_b: ", grad_b)
-
-# num_grad_W, num_grad_b = ComputeGradsNum(X, Y, P, W, b, lambda_, 1e-6)
-# # print("num_grad_W: ", num_grad_W, "num_grad_b: ", num_grad_b)
-
-# slow_num_grad_W, slow_num_grad_b = ComputeGradsNumSlow(X, Y, P, W, b, lambda_, 1e-6)
-# # print("slow_num_grad_W: ", slow_num_grad_W, "slow_num_grad_b: ", slow_num_grad_b)
-
-# print("###################")
-# print("Results:")
-
-# # print(grad_W - num_grad_W, grad_b - num_grad_b)
-# # print(grad_W - slow_num_grad_W, grad_b - slow_num_grad_b)
-
-# #check if abs difference is less than 1e-6
-# print(np.allclose(grad_W, num_grad_W, atol=1e-6), np.allclose(grad_b, num_grad_b, atol=1e-6))
-# print(np.allclose(grad_W, slow_num_grad_W, atol=1e-6), np.allclose(grad_b, slow_num_grad_b, atol=1e-6))
+#plot the cost to a new plot
+plt.figure()
+plt.plot(res_dict["costs_train"], label="Training cost")
+plt.plot(res_dict["costs_val"], label="Validation cost")
+plt.plot(res_dict["losses_train"], label="Training loss")
+plt.plot(res_dict["losses_val"], label="Validation loss")
+plt.title("Training cost vs Validation cost")
+plt.legend()
+plt.xlabel("Epoch")
+plt.ylabel("Cost")
+plt.show()
