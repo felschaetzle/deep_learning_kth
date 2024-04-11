@@ -130,6 +130,8 @@ def MiniBatchGD(X_train, Y_train, labels_train, X_val, Y_val, labels_val, W, b, 
 	accuracies_train = []
 	accuracies_val = []
 	for epoch in range(n_epochs):
+		if epoch % 10 == 0:
+			eta = eta * 0.1
 		for j in range(1, int(n/n_batch)):
 			j_start = (j-1)*n_batch + 1
 			j_end = j*n_batch
@@ -208,9 +210,11 @@ X_train_3, Y_train_3, labels_train_3 = Preprocess(training_data_3)
 X_train_4, Y_train_4, labels_train_4 = Preprocess(training_data_4)
 X_train_5, Y_train_5, labels_train_5 = Preprocess(training_data_5)
 
-X_train = np.concatenate((X_train_1, X_train_2), axis=1)#, X_train_3, X_train_4, X_train_5), axis=1)
-Y_train = np.concatenate((Y_train_1, Y_train_2), axis=1)#, Y_train_3, Y_train_4, Y_train_5), axis=1)
-labels_train = np.concatenate((labels_train_1, labels_train_2))#, labels_train_3, labels_train_4, labels_train_5))
+X_train = np.concatenate((X_train_1, X_train_2, X_train_3, X_train_4, X_train_5), axis=1)
+Y_train = np.concatenate((Y_train_1, Y_train_2, Y_train_3, Y_train_4, Y_train_5), axis=1)
+labels_train = np.concatenate((labels_train_1, labels_train_2, labels_train_3, labels_train_4, labels_train_5))
+
+print("train", X_train.shape, Y_train.shape, labels_train.shape)
 
 #Randomly cut out 1000 samples for validation
 indices = np.random.permutation(X_train.shape[1])
@@ -222,10 +226,8 @@ X_train = X_train[:, indices[1000:]]
 Y_train = Y_train[:, indices[1000:]]
 labels_train = labels_train[indices[1000:]]
 
-print(X_train.shape, Y_train.shape, labels_train.shape)
-
-# print(X_train.shape, Y_train.shape, labels_train.shape)
-# print(X_val.shape, Y_val.shape, labels_val.shape)
+print("train", X_train.shape, Y_train.shape, labels_train.shape)
+print("val", X_val.shape, Y_val.shape, labels_val.shape)
 
 X_test, Y_test, labels_test = Preprocess(test_data)
 

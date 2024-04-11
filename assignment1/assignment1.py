@@ -190,31 +190,31 @@ X_train, Y_train, labels_train = Preprocess(training_data)
 X_val, Y_val, labels_val = Preprocess(validation_data)
 X_test, Y_test, labels_test = Preprocess(test_data)
 
-# W = np.random.normal(0, 0.01, (10, 3072))
-# b = np.random.normal(0, 0.01, (10, 1))
+W = np.random.normal(0, 0.01, (10, 3072))
+b = np.random.normal(0, 0.01, (10, 1))
 
-# res_dict = MiniBatchGD(X_train, Y_train, labels_train, X_val, Y_val, labels_val, W, b, lambda_, n_batch, eta, n_epochs)
+res_dict = MiniBatchGD(X_train, Y_train, labels_train, X_val, Y_val, labels_val, W, b, lambda_, n_batch, eta, n_epochs)
 
-# test_accuracy = ComputeAccuracy(X_test, labels_test, res_dict["W"], res_dict["b"])
-# print("Test accuracy: ", test_accuracy)
+test_accuracy = ComputeAccuracy(X_test, labels_test, res_dict["W"], res_dict["b"])
+print("Test accuracy: ", test_accuracy)
 
-# Montage(res_dict["W"])
+Montage(res_dict["W"])
 
-# #plot the cost to a new plot
-# plt.figure()
-# plt.plot(res_dict["costs_train"], label="Training cost")
-# plt.plot(res_dict["costs_val"], label="Validation cost")
-# plt.plot(res_dict["losses_train"], label="Training loss")
-# plt.plot(res_dict["losses_val"], label="Validation loss")
-# plt.title("Training cost vs Validation cost")
-# plt.legend()
-# plt.xlabel("Epoch")
-# plt.ylabel("Cost")
-# plt.show()
+#plot the cost to a new plot
+plt.figure()
+plt.plot(res_dict["costs_train"], label="Training cost")
+plt.plot(res_dict["costs_val"], label="Validation cost")
+plt.plot(res_dict["losses_train"], label="Training loss")
+plt.plot(res_dict["losses_val"], label="Validation loss")
+plt.title("Training cost vs Validation cost")
+plt.legend()
+plt.xlabel("Epoch")
+plt.ylabel("Cost")
+plt.show()
 
 
 
-###### dev stuff
+##### dev stuff
 # P = EvaluateClassifier(X, W, b)
 
 # cost, loss = CalculateCost(X, Y, W, b, lambda_)
