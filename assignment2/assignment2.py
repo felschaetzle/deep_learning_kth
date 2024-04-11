@@ -134,7 +134,7 @@ def ComputeGradsNumSlow(X, Y, P, W, b, lamda, h):
 
 	return [grad_W, grad_b]
 
-def MiniBatchGD(X_train, Y_train, labels_train, X_val, Y_val, labels_val, W, b, lambda_, n_batch, eta, n_epochs):
+def MiniBatchGD(X_train, Y_train, labels_train, X_val, Y_val, labels_val, W_1, b_1, W_2, b_2, lambda_, n_batch, eta, n_epochs):
 	n = X_train.shape[1]
 	print(n)
 	costs_train = []
@@ -149,25 +149,28 @@ def MiniBatchGD(X_train, Y_train, labels_train, X_val, Y_val, labels_val, W, b, 
 			j_end = j*n_batch
 			X_batch = X_train[:, j_start:j_end]
 			Y_batch = Y_train[:, j_start:j_end]
-			grad_W, grad_b = ComputeGradients(X_batch, Y_batch, W, lambda_)
-			W = W - eta * grad_W
-			b = b - eta * grad_b
+			grad_W_1, grad_b_1, grad_W_2, grad_b_2 = ComputeGradients(X_batch, Y_batch, W_1, b_1, W_2, b_2, lambda_)
+			W_1 = W_1 - eta * grad_W_1
+			b_1 = b_1 - eta * grad_b_1
 
-		cost_train, loss_train = CalculateCost(X_train, Y_train, W, b, lambda_)
+			W_2 = W_2 - eta * grad_W_2
+			b_2 = b_2 - eta * grad_b_2
+			
+		cost_train, loss_train = CalculateCost(X_train, Y_train, W_1, b_1, W_2, b_2, lambda_)
 		costs_train.append(cost_train)
 		losses_train.append(loss_train)
-		accuracy_train = ComputeAccuracy(X_train, labels_train, W, b)
+		accuracy_train = ComputeAccuracy(X_train, labels_train, W_1, b_1, W_2, b_2)
 		accuracies_train.append(accuracy_train)
 
-		cost_val, loss_val = CalculateCost(X_val, Y_val, W, b, lambda_)
+		cost_val, loss_val = CalculateCost(X_val, Y_val, W_1, b_1, W_2, b_2, lambda_)
 		costs_val.append(cost_val)
 		losses_val.append(loss_val)
-		accuracy_val = ComputeAccuracy(X_val, labels_val, W, b)
+		accuracy_val = ComputeAccuracy(X_val, labels_val, W_1, b_1, W_2, b_2)
 		accuracies_val.append(accuracy_val)
 
 		if epoch % 10 == 0:
 			print("Epoch: ", epoch, "Cost: ", cost_train, "Accuracy: ", accuracy_train)
-	return {"W": W, "b": b, "costs_train": costs_train, "accuracies_train": accuracies_train, "costs_val": costs_val, "losses_train": losses_train, "losses_val": losses_val, "accuracies_val": accuracies_val}	
+	return {"costs_train": costs_train, "accuracies_train": accuracies_train, "costs_val": costs_val, "losses_train": losses_train, "losses_val": losses_val, "accuracies_val": accuracies_val, "W_1": W_1, "b_1": b_1, "W_2": W_2, "b_2": b_2}	
 
 def Visualize(data):
     # reshape the data
@@ -200,10 +203,10 @@ test_data_file = 'assignment1/Datasets/test_batch'
 
 np.random.seed(0)
 size = 10000
-lambda_ = 1 #0, 0, 0.1, 1
+lambda_ = 0 #0, 0, 0.1, 1
 eta = 0.001 #0.1, 0.001, 0.001, 0.001
-n_batch = 100
-n_epochs = 40
+n_batch = 50
+n_epochs = 200
 
 training_data = LoadBatch(training_data_file)
 validation_data = LoadBatch(validation_data_file)
@@ -213,10 +216,17 @@ X_train, Y_train, labels_train = Preprocess(training_data)
 X_val, Y_val, labels_val = Preprocess(validation_data)
 X_test, Y_test, labels_test = Preprocess(test_data)
 
-X_train = X_train[:, :10]
-Y_train = Y_train[:, :10]
-labels_train = labels_train[:10]
+X_train = X_train[:, :200]
+Y_train = Y_train[:, :200]
+labels_train = labels_train[:200]
 
+X_val = X_val[:, :100]
+Y_val = Y_val[:, :100]
+labels_val = labels_val[:100]
+
+X_test = X_test[:, :100]
+Y_test = Y_test[:, :100]
+labels_test = labels_test[:100]
 
 W_1 = np.random.normal(0, 1/np.sqrt(3072), (50, 3072))
 b_1 = np.zeros((50, 1))
@@ -224,26 +234,25 @@ b_1 = np.zeros((50, 1))
 W_2 = np.random.normal(0, 1/np.sqrt(50), (10, 50))
 b_2 = np.zeros((10, 1))
 
-# print(EvaluateClassifier(X_train, W_1, b_1, W_2, b_2)[0][:,0])
-# print(EvaluateClassifier(X_train, W_1, b_1, W_2, b_2)[1][:,0])
-
 grads = ComputeGradients(X_train, Y_train, W_1, b_1, W_2, b_2, lambda_)
 
-res_dict = MiniBatchGD(X_train, Y_train, labels_train, X_val, Y_val, labels_val, W, b, lambda_, n_batch, eta, n_epochs)
+res_dict = MiniBatchGD(X_train, Y_train, labels_train, X_val, Y_val, labels_val, W_1, b_1, W_2, b_2, lambda_, n_batch, eta, n_epochs)
 
-# test_accuracy = ComputeAccuracy(X_test, labels_test, res_dict["W"], res_dict["b"])
-# print("Test accuracy: ", test_accuracy)
+test_accuracy = ComputeAccuracy(X_test, labels_test, res_dict["W_1"], res_dict["b_1"], res_dict["W_2"], res_dict["b_2"])
 
-# Montage(res_dict["W"])
+print("Test accuracy: ", test_accuracy)
 
-# #plot the cost to a new plot
-# plt.figure()
-# plt.plot(res_dict["costs_train"], label="Training cost")
-# plt.plot(res_dict["costs_val"], label="Validation cost")
-# plt.plot(res_dict["losses_train"], label="Training loss")
-# plt.plot(res_dict["losses_val"], label="Validation loss")
-# plt.title("Training cost vs Validation cost")
-# plt.legend()
-# plt.xlabel("Epoch")
-# plt.ylabel("Cost")
-# plt.show()
+# Montage(res_dict["W_1"])
+# Montage(res_dict["W_2"])
+
+#plot the cost to a new plot
+plt.figure()
+plt.plot(res_dict["costs_train"], label="Training cost")
+plt.plot(res_dict["costs_val"], label="Validation cost")
+plt.plot(res_dict["losses_train"], label="Training loss")
+plt.plot(res_dict["losses_val"], label="Validation loss")
+plt.title("Training cost vs Validation cost")
+plt.legend()
+plt.xlabel("Epoch")
+plt.ylabel("Cost")
+plt.show()
