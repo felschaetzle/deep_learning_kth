@@ -40,7 +40,8 @@ def CalculateCost(X, Y, W_1, b_1, W_2, b_2, lamda):
 	P, _ = EvaluateClassifier(X, W_1, b_1, W_2, b_2)
 	loss = -np.log(np.diag(Y.T @ P))
 	reg = lamda * (np.sum(W_1**2) + np.sum(W_2**2))
-	return np.sum(loss) / N + reg, np.sum(loss) / N
+	sum_loss = np.sum(loss)
+	return sum_loss / N + reg, sum_loss / N
 
 def ComputeAccuracy(X, y, W_1, b_1, W_2, b_2):
 	P, _ = EvaluateClassifier(X, W_1, b_1, W_2, b_2)
@@ -53,10 +54,11 @@ def ComputeGradients(X, Y, W_1, b_1, W_2, b_2, lamda):
 	# print("P shape", P.shape, "Y shape", Y.shape)
 	G = -(Y - P)
 	# print(G.shape, "G shape")
-	grad_W_2 = G @ np.maximum(0, W_1@X + b_1).T / N + 2 * lamda * W_2
+	forward = W_1@X + b_1
+	grad_W_2 = G @ np.maximum(0, forward).T / N + 2 * lamda * W_2
 	grad_b_2 = np.sum(G, axis=1).reshape(10, 1) / N
 	G = W_2.T @ G
-	G = G * (W_1@X + b_1 > 0)
+	G = G * (forward > 0)
 	grad_W_1 = G @ X.T / N + 2 * lamda * W_1
 	grad_b_1 = np.sum(G, axis=1).reshape(50, 1) / N
 	return grad_W_1, grad_b_1, grad_W_2, grad_b_2
@@ -173,9 +175,10 @@ def MiniBatchGD(X_train, Y_train, labels_train, X_val, Y_val, labels_val, W_1, b
 	return {"costs_train": costs_train, "accuracies_train": accuracies_train, "costs_val": costs_val, "losses_train": losses_train, "losses_val": losses_val, "accuracies_val": accuracies_val, "W_1": W_1, "b_1": b_1, "W_2": W_2, "b_2": b_2}	
 
 def MiniBatchGDCyclicLR(X_train, Y_train, labels_train, X_val, Y_val, labels_val, W_1, b_1, W_2, b_2, lambda_, n_batch, eta, n_epochs):
-	eta_s = 50
+	eta_s = 1000
 	eta_min = 1e-5
 	eta_max = 1e-1
+	cycles = 3
 	n = X_train.shape[1]
 	print(n)
 	costs_train = []
@@ -185,42 +188,47 @@ def MiniBatchGDCyclicLR(X_train, Y_train, labels_train, X_val, Y_val, labels_val
 	accuracies_train = []
 	accuracies_val = []
 
-	for step in range(2*eta_s):
-		if step <= eta_s:
-			eta = eta_min + step/eta_s * (eta_max - eta_min)
-		else:
-			eta = eta_max - (step - eta_s)/eta_s * (eta_max - eta_min)
+	update_list = []
 
-		j_start = step%100 * n_batch
-		j_end = (step%100 + 1) * n_batch
-		# j_start = 0
-		# j_end = 100
 
-		X_batch = X_train[:, j_start:j_end]
-		Y_batch = Y_train[:, j_start:j_end]
+	for cycle in range(cycles):
+		for step in range(2*eta_s):
+			if step <= eta_s:
+				eta = eta_min + step/eta_s * (eta_max - eta_min)
+			else:
+				eta = eta_max - (step - eta_s)/eta_s * (eta_max - eta_min)
 
-		grad_W_1, grad_b_1, grad_W_2, grad_b_2 = ComputeGradients(X_batch, Y_batch, W_1, b_1, W_2, b_2, lambda_)
-		W_1 = W_1 - eta * grad_W_1
-		b_1 = b_1 - eta * grad_b_1
+			j_start = step%100 * n_batch
+			j_end = (step%100 + 1) * n_batch
+			# j_start = 0
+			# j_end = 100
 
-		W_2 = W_2 - eta * grad_W_2
-		b_2 = b_2 - eta * grad_b_2
+			X_batch = X_train[:, j_start:j_end]
+			Y_batch = Y_train[:, j_start:j_end]
 
-		cost_train, loss_train = CalculateCost(X_train, Y_train, W_1, b_1, W_2, b_2, lambda_)
-		costs_train.append(cost_train)
-		losses_train.append(loss_train)
-		accuracy_train = ComputeAccuracy(X_train, labels_train, W_1, b_1, W_2, b_2)
-		accuracies_train.append(accuracy_train)
+			grad_W_1, grad_b_1, grad_W_2, grad_b_2 = ComputeGradients(X_batch, Y_batch, W_1, b_1, W_2, b_2, lambda_)
+			W_1 = W_1 - eta * grad_W_1
+			b_1 = b_1 - eta * grad_b_1
 
-		cost_val, loss_val = CalculateCost(X_val, Y_val, W_1, b_1, W_2, b_2, lambda_)
-		costs_val.append(cost_val)
-		losses_val.append(loss_val)
-		accuracy_val = ComputeAccuracy(X_val, labels_val, W_1, b_1, W_2, b_2)
-		accuracies_val.append(accuracy_val)
-		
-		if step % 10 == 0:
-			print("Step: ", step, "Cost: ", cost_train, "Accuracy: ", accuracy_train)
-	return {"costs_train": costs_train, "accuracies_train": accuracies_train, "costs_val": costs_val, "losses_train": losses_train, "losses_val": losses_val, "accuracies_val": accuracies_val, "W_1": W_1, "b_1": b_1, "W_2": W_2, "b_2": b_2}	
+			W_2 = W_2 - eta * grad_W_2
+			b_2 = b_2 - eta * grad_b_2
+
+			if step % (eta_s/5) == 0:
+				cost_train, loss_train = CalculateCost(X_train, Y_train, W_1, b_1, W_2, b_2, lambda_)
+				costs_train.append(cost_train)
+				losses_train.append(loss_train)
+				accuracy_train = ComputeAccuracy(X_train, labels_train, W_1, b_1, W_2, b_2)
+				accuracies_train.append(accuracy_train)
+
+				cost_val, loss_val = CalculateCost(X_val, Y_val, W_1, b_1, W_2, b_2, lambda_)
+				costs_val.append(cost_val)
+				losses_val.append(loss_val)
+				accuracy_val = ComputeAccuracy(X_val, labels_val, W_1, b_1, W_2, b_2)
+				accuracies_val.append(accuracy_val)
+				update_list.append(step + (2*eta_s)*(cycle+1))
+
+				print("Step: ", step, "Cost: ", cost_train, "Accuracy: ", accuracy_train)
+	return {"costs_train": costs_train, "accuracies_train": accuracies_train, "costs_val": costs_val, "losses_train": losses_train, "losses_val": losses_val, "accuracies_val": accuracies_val, "W_1": W_1, "b_1": b_1, "W_2": W_2, "b_2": b_2, "update_list": update_list}	
 
 
 def Visualize(data):
@@ -248,36 +256,61 @@ def Montage(W):
 			ax[i][j].set_title("y="+str(5*i+j))
 			ax[i][j].axis('off')
 
-training_data_file = 'assignment1/Datasets/data_batch_1'
-validation_data_file = 'assignment1/Datasets/data_batch_2'
+training_data_1 = 'assignment1/Datasets/data_batch_1'
+training_data_2 = 'assignment1/Datasets/data_batch_2'
+training_data_3 = 'assignment1/Datasets/data_batch_3'
+training_data_4 = 'assignment1/Datasets/data_batch_4'
+training_data_5 = 'assignment1/Datasets/data_batch_5'
+
 test_data_file = 'assignment1/Datasets/test_batch'
 
-np.random.seed(0)
+# np.random.seed(0)
 size = 10000
-lambda_ = 0.01 #0, 0, 0.1, 1
+lambda_ = 0.016 #0, 0, 0.1, 1
 eta = 0.001 #0.1, 0.001, 0.001, 0.001
 n_batch = 100
-n_epochs = 200
+n_epochs = 10
 
-training_data = LoadBatch(training_data_file)
-validation_data = LoadBatch(validation_data_file)
+training_data_1 = LoadBatch(training_data_1)
+training_data_2 = LoadBatch(training_data_2)
+training_data_3 = LoadBatch(training_data_3)
+training_data_4 = LoadBatch(training_data_4)
+training_data_5 = LoadBatch(training_data_5)
+
 test_data = LoadBatch(test_data_file)
 
-X_train, Y_train, labels_train = Preprocess(training_data)
-X_val, Y_val, labels_val = Preprocess(validation_data)
+X_train_1, Y_train_1, labels_train_1 = Preprocess(training_data_1)
+X_train_2, Y_train_2, labels_train_2 = Preprocess(training_data_2)
+X_train_3, Y_train_3, labels_train_3 = Preprocess(training_data_3)
+X_train_4, Y_train_4, labels_train_4 = Preprocess(training_data_4)
+X_train_5, Y_train_5, labels_train_5 = Preprocess(training_data_5)
+
 X_test, Y_test, labels_test = Preprocess(test_data)
 
-X_train = X_train
-Y_train = Y_train
-labels_train = labels_train
+X_train = np.concatenate((X_train_1, X_train_2, X_train_3, X_train_4, X_train_5), axis=1)
+Y_train = np.concatenate((Y_train_1, Y_train_2, Y_train_3, Y_train_4, Y_train_5), axis=1)
+labels_train = np.concatenate((labels_train_1, labels_train_2, labels_train_3, labels_train_4, labels_train_5))
 
-X_val = X_val
-Y_val = Y_val
-labels_val = labels_val
+print("train", X_train.shape, Y_train.shape, labels_train.shape)
 
-X_test = X_test
-Y_test = Y_test
-labels_test = labels_test
+#Randomly cut out 1000 samples for validation
+indices = np.random.permutation(X_train.shape[1])
+X_val = X_train[:, indices[:5000]]
+Y_val = Y_train[:, indices[:5000]]
+labels_val = labels_train[indices[:5000]]
+
+X_train = X_train[:, indices[5000:]]
+Y_train = Y_train[:, indices[5000:]]
+labels_train = labels_train[indices[5000:]]
+
+print("train", X_train.shape, Y_train.shape, labels_train.shape)
+print("val", X_val.shape, Y_val.shape, labels_val.shape)
+
+
+# lambdas_ = [0.01, 0.013, 0.016, 0.02, 0.03]
+# for lambda_ in lambdas_:
+# 	print("@@@@@@@@@@@@@@@@@@@@@@@@@@")
+# 	print("lambda: ", lambda_)
 
 W_1 = np.random.normal(0, 1/np.sqrt(3072), (50, 3072))
 b_1 = np.zeros((50, 1))
@@ -287,23 +320,38 @@ b_2 = np.zeros((10, 1))
 
 grads = ComputeGradients(X_train, Y_train, W_1, b_1, W_2, b_2, lambda_)
 
+
 res_dict = MiniBatchGDCyclicLR(X_train, Y_train, labels_train, X_val, Y_val, labels_val, W_1, b_1, W_2, b_2, lambda_, n_batch, eta, n_epochs)
+
+# res_dict = MiniBatchGD(X_train, Y_train, labels_train, X_val, Y_val, labels_val, W_1, b_1, W_2, b_2, lambda_, n_batch, eta, n_epochs)
+
 
 test_accuracy = ComputeAccuracy(X_test, labels_test, res_dict["W_1"], res_dict["b_1"], res_dict["W_2"], res_dict["b_2"])
 
 print("Test accuracy: ", test_accuracy)
 
-# # Montage(res_dict["W_1"])
-# # Montage(res_dict["W_2"])
+# # # Montage(res_dict["W_1"])
+# # # Montage(res_dict["W_2"])
 
 #plot the cost to a new plot
 plt.figure()
-plt.plot(res_dict["costs_train"], label="Training cost")
-plt.plot(res_dict["costs_val"], label="Validation cost")
-plt.plot(res_dict["losses_train"], label="Training loss")
-plt.plot(res_dict["losses_val"], label="Validation loss")
+# plot the update list on the x-axis
+plt.plot(res_dict["update_list"], res_dict["costs_train"], label="Training cost")
+plt.plot(res_dict["update_list"], res_dict["costs_val"], label="Validation cost")
+plt.plot(res_dict["update_list"], res_dict["losses_train"], label="Training loss")
+plt.plot(res_dict["update_list"], res_dict["losses_val"], label="Validation loss")
 plt.title("Training cost vs Validation cost")
 plt.legend()
-plt.xlabel("Epoch")
+plt.xlabel("Updates")
 plt.ylabel("Cost")
+
+
+#plot the accuracy to a new plot
+plt.figure()
+plt.plot(res_dict["update_list"], res_dict["accuracies_train"], label="Training accuracy")
+plt.plot(res_dict["update_list"], res_dict["accuracies_val"], label="Validation accuracy")
+plt.title("Training accuracy vs Validation accuracy")
+plt.legend()
+plt.xlabel("Updates")
+plt.ylabel("Accuracy")
 plt.show()
