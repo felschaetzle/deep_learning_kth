@@ -175,7 +175,7 @@ def MiniBatchGD(X_train, Y_train, labels_train, X_val, Y_val, labels_val, W_1, b
 	return {"costs_train": costs_train, "accuracies_train": accuracies_train, "costs_val": costs_val, "losses_train": losses_train, "losses_val": losses_val, "accuracies_val": accuracies_val, "W_1": W_1, "b_1": b_1, "W_2": W_2, "b_2": b_2}	
 
 def MiniBatchGDCyclicLR(X_train, Y_train, labels_train, X_val, Y_val, labels_val, W_1, b_1, W_2, b_2, lambda_, n_batch, eta, n_epochs):
-	eta_s = 1000
+	eta_s = 450
 	eta_min = 1e-5
 	eta_max = 1e-1
 	cycles = 3
@@ -189,7 +189,8 @@ def MiniBatchGDCyclicLR(X_train, Y_train, labels_train, X_val, Y_val, labels_val
 	accuracies_val = []
 
 	update_list = []
-
+	eta_list = []
+	j_end_list = []
 
 	for cycle in range(cycles):
 		for step in range(2*eta_s):
@@ -197,11 +198,13 @@ def MiniBatchGDCyclicLR(X_train, Y_train, labels_train, X_val, Y_val, labels_val
 				eta = eta_min + step/eta_s * (eta_max - eta_min)
 			else:
 				eta = eta_max - (step - eta_s)/eta_s * (eta_max - eta_min)
+			# print(step)
+			eta_list.append(eta)
 
-			j_start = step%100 * n_batch
-			j_end = (step%100 + 1) * n_batch
-			# j_start = 0
-			# j_end = 100
+			j_start = (step * n_batch) % n
+			j_end = ((step + 1) * n_batch) % n
+			if ((step + 1) * n_batch)%n == 0:
+				j_end = n
 
 			X_batch = X_train[:, j_start:j_end]
 			Y_batch = Y_train[:, j_start:j_end]
@@ -228,8 +231,8 @@ def MiniBatchGDCyclicLR(X_train, Y_train, labels_train, X_val, Y_val, labels_val
 				update_list.append(step + (2*eta_s)*(cycle+1))
 
 				print("Step: ", step, "Cost: ", cost_train, "Accuracy: ", accuracy_train)
+	
 	return {"costs_train": costs_train, "accuracies_train": accuracies_train, "costs_val": costs_val, "losses_train": losses_train, "losses_val": losses_val, "accuracies_val": accuracies_val, "W_1": W_1, "b_1": b_1, "W_2": W_2, "b_2": b_2, "update_list": update_list}	
-
 
 def Visualize(data):
     # reshape the data
@@ -266,7 +269,7 @@ test_data_file = 'assignment1/Datasets/test_batch'
 
 # np.random.seed(0)
 size = 10000
-lambda_ = 0.016 #0, 0, 0.1, 1
+lambda_ = 0.01 #0.016 beste! 0, 0, 0.1, 1
 eta = 0.001 #0.1, 0.001, 0.001, 0.001
 n_batch = 100
 n_epochs = 10
@@ -330,8 +333,8 @@ test_accuracy = ComputeAccuracy(X_test, labels_test, res_dict["W_1"], res_dict["
 
 print("Test accuracy: ", test_accuracy)
 
-# # # Montage(res_dict["W_1"])
-# # # Montage(res_dict["W_2"])
+# # # # Montage(res_dict["W_1"])
+# # # # Montage(res_dict["W_2"])
 
 #plot the cost to a new plot
 plt.figure()
