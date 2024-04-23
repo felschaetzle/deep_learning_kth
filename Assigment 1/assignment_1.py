@@ -27,9 +27,9 @@ def preprocess_data(data):
     return norm_data
 
 
-X_train, Y_train, y_train = load_batch('Datasets/cifar-10-batches-py/data_batch_1')
-X_val, Y_val, y_val = load_batch('Datasets/cifar-10-batches-py/data_batch_2')
-X_test, Y_test, y_test = load_batch('Datasets/cifar-10-batches-py/test_batch')
+X_train, Y_train, y_train = load_batch('Assigment 1/Datasets/cifar-10-batches-py/data_batch_1')
+X_val, Y_val, y_val = load_batch('Assigment 1/Datasets/cifar-10-batches-py/data_batch_2')
+X_test, Y_test, y_test = load_batch('Assigment 1/Datasets/cifar-10-batches-py/test_batch')
 
 X_train = preprocess_data(X_train)
 X_val = preprocess_data(X_val)
@@ -189,20 +189,20 @@ def MiniBatchGD(X_train, Y_train, y_train, X_val, Y_val, y_val,  n_batch, eta, n
                 W -= eta * grad_W
                 b -= eta * grad_b
 
-                cost_train, loss_train = ComputeCost(X_train, Y_train, W, b, lambda_)
-                costs_train.append(cost_train)
-                losses_train.append(loss_train)
-                accuracy_train = ComputeAccuracy(X_train, y_train, W, b)
-                accuracies_train.append(accuracy_train)
+            cost_train, loss_train = ComputeCost(X_train, Y_train, W, b, lambda_)
+            costs_train.append(cost_train)
+            losses_train.append(loss_train)
+            accuracy_train = ComputeAccuracy(X_train, y_train, W, b)
+            accuracies_train.append(accuracy_train)
 
-                cost_val, loss_val = ComputeCost(X_val, Y_val, W, b, lambda_)
-                costs_val.append(cost_val)
-                losses_val.append(loss_val)
-                accuracy_val = ComputeAccuracy(X_val, y_val, W, b)
-                accuracies_val.append(accuracy_val)
-                
-                if epoch % 10 == 0:
-                    print("Epoch: ", epoch, "Cost: ", cost_train, "Accuracy: ", accuracy_train)
+            cost_val, loss_val = ComputeCost(X_val, Y_val, W, b, lambda_)
+            costs_val.append(cost_val)
+            losses_val.append(loss_val)
+            accuracy_val = ComputeAccuracy(X_val, y_val, W, b)
+            accuracies_val.append(accuracy_val)
+            
+            #if epoch % 10 == 0:
+            print("Epoch: ", epoch, "Cost: ", cost_train, "Accuracy: ", accuracy_train)
     
         return {"W": W, "b": b, "costs_train": costs_train, "accuracies_train": accuracies_train, "costs_val": costs_val, "losses_train": losses_train, "losses_val": losses_val, "accuracies_val": accuracies_val}
 
@@ -210,7 +210,7 @@ def visualize_weights(W):
     # Reshape each row of W into a set of images
     images = []
     for i in range(W.shape[0]):
-        im = np.reshape(W[i, :], (32, 32, 3))
+        im = np.reshape(W[i, :], (32, 32, 3), order='F')
         im = (im - np.min(im)) / (np.max(im) - np.min(im))
         im = np.transpose(im, (1, 0, 2))
         images.append(im)
