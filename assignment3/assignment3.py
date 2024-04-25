@@ -51,24 +51,32 @@ def InitializeParams(X_train, Y_train, layers):
 	# b.append(b_2)
 	return W, b
 
-def EvaluateClassifier(X, W, b):
-	s_cache = []
+def EvaluateClassifier(X, W, b, gamma, beta):
 	h_cache = []
 	h_cache.append(X)
+	s_cache = []
+	s_hat_cache = []
 	for i in range(len(W)):
 		if i == 0:
 			s = W[i]@X + b[i]
+			s_cache.append(s)
+			s, mu, var, X_norm = BatchNorm(s, gamma, beta)
+			s_hat_cache.append(s)
 			h = np.maximum(0, s)
 
 		elif i < len(W) - 1:
 			s = W[i]@h + b[i]
+			s_cache.append(s)
+			s, mu, var, X_norm = BatchNorm(s, gamma, beta)
+			s_hat_cache.append(s)
 			h = np.maximum(0, s)
+
 		else:
 			s = W[i]@h + b[i]
 			p = np.exp(s) / np.sum(np.exp(s), axis=0)
 
-			return p, s_cache, h_cache
-		s_cache.append(s)
+			return p, s_cache, s_hat_cache, h_cache, mu, var, X_norm, gamma, beta
+		# s_cache.append(s)
 		h_cache.append(h)
 
 def CalculateCost(X, Y, W, b, lamda):
@@ -88,25 +96,52 @@ def ComputeAccuracy(X, y, W, b):
 	predictions = np.argmax(P, axis=0)
 	return np.sum(predictions == y) / len(y)
 
-def ComputeGradients(X, Y, W, b, lamda):
-	P, s_cache, h_cache = EvaluateClassifier(X, W, b)
+def BatchNorm(X, gamma, beta):
+	mu = np.mean(X, axis=1)
+	var = np.var(X, axis=1)
+	X_norm = (X - mu) / np.sqrt(var + 1e-7)
+	out = gamma * X_norm + beta
+	return out, mu, var, X_norm
+
+
+def ComputeGradients(X, Y, W, b, lamda, gamma, beta):
+	P, s_cache, s_hat_cache, h_cache, mu, var, X_norm, gamma, beta = EvaluateClassifier(X, W, b, gamma, beta)
 	N = X.shape[1]
 	#calculate all gradients for the list of W and b of lenght L
 	grad_W = []
 	grad_b = []
+	grad_gamma = []
+	grad_beta = []
+
 	G = -(Y - P)
 	for i in range(len(W)-1, -1, -1):
 		if i == len(W) - 1:
 			s = s_cache[i-1]
-			
+						
 			grad_W.append(G @ np.maximum(0, s).T / N + 2 * lamda * W[i])
 			grad_b.append(np.sum(G, axis=1).reshape(W[i].shape[0], 1) / N)
+
+
 			G = W[i].T @ G
 			G = G * (s > 0)
 
 		else:
 			h = h_cache[i]
-			
+
+			grad_gamma.append(np.sum(G * s_hat_cache[i], axis=1).reshape(W[i].shape[0], 1) / N)
+			grad_beta.append(np.sum(G, axis=1).reshape(W[i].shape[0], 1) / N)
+
+			# Propagate the gradients through the scale and shift
+			G = G * gamma
+
+			# Propagate the gradients through the batch normalization
+			G_one = G * (1 / np.sqrt(var + 1e-7))
+			G_two = G * (var + 1e-7)**(-3/2)
+			D = s_cache[i] - mu
+			c = np.sum(G_two * D, axis=1).reshape(W[i].shape[0], 1)
+
+			G = G_one - (1 / N) * np.sum(G_one, axis=1).reshape(W[i].shape[0], 1) - (1 / N) * D * c
+
 			grad_W.append(G @ h.T / N + 2 * lamda * W[i])
 			grad_b.append(np.sum(G, axis=1).reshape(W[i].shape[0], 1) / N)
 			G = W[i].T @ G
@@ -245,6 +280,16 @@ def MiniBatchGDCyclicLR(X_train, Y_train, labels_train, X_val, Y_val, labels_val
 	update_list = []
 	eta_list = []
 
+	gamma = []
+	beta = []
+	#initialize gamma and beta
+	for i, elm in enumerate(W):
+		if i < len(W) - 1:
+			g = np.ones((elm.shape[0], 1))
+			b = np.zeros((elm.shape[0], 1))
+			gamma.append(g)
+			beta.append(b)
+
 	for cycle in range(cycles):
 		for step in range(2*eta_s):
 			if step <= eta_s:
@@ -262,7 +307,7 @@ def MiniBatchGDCyclicLR(X_train, Y_train, labels_train, X_val, Y_val, labels_val
 			X_batch = X_train[:, j_start:j_end]
 			Y_batch = Y_train[:, j_start:j_end]
 
-			grad_W, grad_b = ComputeGradients(X_batch, Y_batch, W, b, lambda_)
+			grad_W, grad_b = ComputeGradients(X_batch, Y_batch, W, b, lambda_, gamma, beta)
 
 			for i in range(len(W)):
 				W[i] = W[i] - eta * grad_W[i]
@@ -285,23 +330,6 @@ def MiniBatchGDCyclicLR(X_train, Y_train, labels_train, X_val, Y_val, labels_val
 				print("Step: ", step, "Cost: ", cost_train, "Accuracy: ", accuracy_train)
 	
 	return {"costs_train": costs_train, "accuracies_train": accuracies_train, "costs_val": costs_val, "losses_train": losses_train, "losses_val": losses_val, "accuracies_val": accuracies_val, "W": W, "b": b, "update_list": update_list}	
-
-def BatchNorm(X, gamma, beta):
-	mu = np.mean(X, axis=1)
-	var = np.var(X, axis=1)
-	X_norm = (X - mu) / np.sqrt(var + 1e-7)
-	out = gamma * X_norm + beta
-	return out
-
-def BatchNormBackPass(G, X, mu, var, gamma):
-	N = X.shape[1]
-	X_mu = X - mu
-	std_inv = 1 / np.sqrt(var + 1e-7)
-	dX_norm = G * gamma
-	dvar = np.sum(dX_norm * X_mu, axis=1) * -0.5 * std_inv**3
-	dmu = np.sum(dX_norm * -std_inv, axis=1) + dvar * np.mean(-2.0 * X_mu, axis=1)
-	dX = (dX_norm * std_inv) + (dvar * 2 * X_mu / N) + (dmu / N)
-	return dX, dvar, dmu
 
 def Visualize(data):
     # reshape the data
