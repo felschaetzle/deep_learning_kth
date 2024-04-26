@@ -51,37 +51,9 @@ def InitializeParams(X_train, Y_train, layers):
 	# b.append(b_2)
 	return W, b
 
-def EvaluateClassifier(X, W, b, gamma, beta):
-	h_cache = []
-	h_cache.append(X)
-	s_cache = []
-	s_hat_cache = []
-	for i in range(len(W)):
-		if i == 0:
-			s = W[i]@X + b[i]
-			s_cache.append(s)
-			s, mu, var, X_norm = BatchNorm(s, gamma, beta)
-			s_hat_cache.append(s)
-			h = np.maximum(0, s)
-
-		elif i < len(W) - 1:
-			s = W[i]@h + b[i]
-			s_cache.append(s)
-			s, mu, var, X_norm = BatchNorm(s, gamma, beta)
-			s_hat_cache.append(s)
-			h = np.maximum(0, s)
-
-		else:
-			s = W[i]@h + b[i]
-			p = np.exp(s) / np.sum(np.exp(s), axis=0)
-
-			return p, s_cache, s_hat_cache, h_cache, mu, var, X_norm, gamma, beta
-		# s_cache.append(s)
-		h_cache.append(h)
-
-def CalculateCost(X, Y, W, b, lamda):
+def CalculateCost(X, Y, W, b, lamda, gamma, beta):
 	N = X.shape[1]
-	P, _, _ = EvaluateClassifier(X, W, b)
+	P, _, _, _, _, _, _, _ = EvaluateClassifier(X, W, b, gamma, beta)
 	loss = -np.log(np.diag(Y.T @ P))
 	reg_loss = 0
 	for elm in W:
@@ -91,21 +63,54 @@ def CalculateCost(X, Y, W, b, lamda):
 	sum_loss = np.sum(loss)
 	return sum_loss / N + reg, sum_loss / N
 
-def ComputeAccuracy(X, y, W, b):
-	P, _, _ = EvaluateClassifier(X, W, b)
+def ComputeAccuracy(X, y, W, b, gamma, beta):
+	P, _, _, _, _, _, _, _ = EvaluateClassifier(X, W, b, gamma, beta)
 	predictions = np.argmax(P, axis=0)
 	return np.sum(predictions == y) / len(y)
 
 def BatchNorm(X, gamma, beta):
 	mu = np.mean(X, axis=1)
 	var = np.var(X, axis=1)
-	X_norm = (X - mu) / np.sqrt(var + 1e-7)
-	out = gamma * X_norm + beta
-	return out, mu, var, X_norm
+	# X_0 = X - mu.reshape(-1, 1)
+	X_norm = (X - mu.reshape(-1, 1)) / np.sqrt(var.reshape(-1, 1) + 1e-9)
+	s_tilde = gamma * X_norm + beta
+	return s_tilde, mu, var, X_norm
 
+def EvaluateClassifier(X, W, b, gamma, beta):
+	h_cache = []
+	h_cache.append(X)
+	s_cache = []
+	s_hat_cache = []
+	mu_cache = []
+	var_cache = []
+
+	for i in range(len(W)):
+		if i == 0:
+			s = W[i]@X + b[i]
+			s_cache.append(s)
+			s_tilde, mu, var, X_norm = BatchNorm(s, gamma[i], beta[i])
+			s_hat_cache.append(X_norm)
+			h = np.maximum(0, s_tilde)
+
+		elif i < len(W) - 1:
+			s = W[i]@h + b[i]
+			s_cache.append(s)
+			s_tilde, mu, var, X_norm = BatchNorm(s, gamma[i], beta[i])
+			s_hat_cache.append(X_norm)
+			h = np.maximum(0, s_tilde)
+
+		else:
+			s = W[i]@h + b[i]
+			p = np.exp(s) / np.sum(np.exp(s), axis=0)
+
+			return p, s_cache, s_hat_cache, h_cache, mu, var, gamma, beta
+		# s_cache.append(s)
+		h_cache.append(h)
+		mu_cache.append(mu)
+		var_cache.append(var)
 
 def ComputeGradients(X, Y, W, b, lamda, gamma, beta):
-	P, s_cache, s_hat_cache, h_cache, mu, var, X_norm, gamma, beta = EvaluateClassifier(X, W, b, gamma, beta)
+	P, s_cache, s_hat_cache, h_cache, mu, var, gamma, beta = EvaluateClassifier(X, W, b, gamma, beta)
 	N = X.shape[1]
 	#calculate all gradients for the list of W and b of lenght L
 	grad_W = []
@@ -132,12 +137,13 @@ def ComputeGradients(X, Y, W, b, lamda, gamma, beta):
 			grad_beta.append(np.sum(G, axis=1).reshape(W[i].shape[0], 1) / N)
 
 			# Propagate the gradients through the scale and shift
-			G = G * gamma
+			G = G * gamma[i]
 
 			# Propagate the gradients through the batch normalization
-			G_one = G * (1 / np.sqrt(var + 1e-7))
-			G_two = G * (var + 1e-7)**(-3/2)
-			D = s_cache[i] - mu
+			G_one = G * (1 / np.sqrt(var[i] + 1e-9).reshape(-1, 1))
+			# G_two = G * (var.reshape(-1,1) + 1e-9)**(-3/2)
+			G_two = G * (var[i] + 1e-9).reshape(-1,1)**(-3/2)
+			D = s_cache[i] - mu[i].reshape(-1,1)
 			c = np.sum(G_two * D, axis=1).reshape(W[i].shape[0], 1)
 
 			G = G_one - (1 / N) * np.sum(G_one, axis=1).reshape(W[i].shape[0], 1) - (1 / N) * D * c
@@ -149,7 +155,9 @@ def ComputeGradients(X, Y, W, b, lamda, gamma, beta):
 	
 	grad_W = grad_W[::-1]
 	grad_b = grad_b[::-1]
-	return grad_W, grad_b
+	grad_gamma = grad_gamma[::-1]
+	grad_beta = grad_beta[::-1]
+	return grad_W, grad_b, grad_gamma, grad_beta
 
 def ComputeGradsNum(X, Y, W_1, b_1, W_2, b_2, lamda, h):
 	""" Converted from matlab code """
@@ -285,10 +293,8 @@ def MiniBatchGDCyclicLR(X_train, Y_train, labels_train, X_val, Y_val, labels_val
 	#initialize gamma and beta
 	for i, elm in enumerate(W):
 		if i < len(W) - 1:
-			g = np.ones((elm.shape[0], 1))
-			b = np.zeros((elm.shape[0], 1))
-			gamma.append(g)
-			beta.append(b)
+			gamma.append(np.ones((elm.shape[0], 1)))
+			beta.append(np.zeros((elm.shape[0], 1)))
 
 	for cycle in range(cycles):
 		for step in range(2*eta_s):
@@ -307,23 +313,27 @@ def MiniBatchGDCyclicLR(X_train, Y_train, labels_train, X_val, Y_val, labels_val
 			X_batch = X_train[:, j_start:j_end]
 			Y_batch = Y_train[:, j_start:j_end]
 
-			grad_W, grad_b = ComputeGradients(X_batch, Y_batch, W, b, lambda_, gamma, beta)
+			grad_W, grad_b, grad_gamma, grad_beta = ComputeGradients(X_batch, Y_batch, W, b, lambda_, gamma, beta)
 
 			for i in range(len(W)):
 				W[i] = W[i] - eta * grad_W[i]
 				b[i] = b[i] - eta * grad_b[i]
 
+			for i in range(len(gamma)):
+				gamma[i] = gamma[i] - eta * grad_gamma[i]
+				beta[i] = beta[i] - eta * grad_beta[i]
+
 			if step % (eta_s/5) == 0:
-				cost_train, loss_train = CalculateCost(X_train, Y_train, W, b, lambda_)
+				cost_train, loss_train = CalculateCost(X_train, Y_train, W, b, lambda_, gamma, beta)
 				costs_train.append(cost_train)
 				losses_train.append(loss_train)
-				accuracy_train = ComputeAccuracy(X_train, labels_train, W, b)
+				accuracy_train = ComputeAccuracy(X_train, labels_train, W, b, gamma, beta)
 				accuracies_train.append(accuracy_train)
 
-				cost_val, loss_val = CalculateCost(X_val, Y_val, W, b, lambda_)
+				cost_val, loss_val = CalculateCost(X_val, Y_val, W, b, lambda_, gamma, beta)
 				costs_val.append(cost_val)
 				losses_val.append(loss_val)
-				accuracy_val = ComputeAccuracy(X_val, labels_val, W, b)
+				accuracy_val = ComputeAccuracy(X_val, labels_val, W, b, gamma, beta)
 				accuracies_val.append(accuracy_val)
 				update_list.append(step + (2*eta_s)*(cycle+1))
 
@@ -370,7 +380,7 @@ lambda_ = 0.005 #0.016 beste! 0, 0, 0.1, 1
 # eta = 0.001 #0.1, 0.001, 0.001, 0.001
 n_batch = 100
 # n_epochs = 10
-layers = [50, 30, 20, 20, 10, 10, 10, 10] # [50, 50, 10]
+layers = [50, 50, 10] #[50, 30, 20, 20, 10, 10, 10, 10] 
 
 training_data_1 = LoadBatch(training_data_1)
 training_data_2 = LoadBatch(training_data_2)
