@@ -44,18 +44,50 @@ def InitializeParams(X_train, Y_train, layers):
 	print("b shape", len(b))
 	return W, b
 
-def EvaluateClassifier(X, W, b):
+def EvaluateClassifier(X, W, b, gamma, beta):
     layer_input = X
-    for W_elm, b_elm in zip(W, b):
+
+    s_hat_cache = []
+    s_cache = []
+    x_batch_cache = []
+    x_batch_cache.append(X)
+    mean_cache = []
+    var_cache = []
+    for i in range(len(W)):
+        W_elm = W[i]
+        b_elm = b[i]
+
+        if i == len(W) - 1:
+            s = W_elm @ layer_input + b_elm
+            return np.exp(s) / np.sum(np.exp(s), axis=0), s_hat_cache, s_cache, x_batch_cache, mean_cache, var_cache
+		
+        gamma_elm = gamma[i]
+        beta_elm = beta[i]
+				
         s = W_elm @ layer_input + b_elm
-        h = np.maximum(0, s)  # ReLU activation
+        s_cache.append(s)
+
+
+		#add batch normalization here
+        mean = np.mean(s, axis=1).reshape(-1, 1)
+        var = np.var(s, axis=1).reshape(-1, 1)
+
+        mean_cache.append(mean)
+        var_cache.append(var)
+
+        s_hat = (s - mean) / np.sqrt(var + 1e-8)
+        s_hat_cache.append(s_hat)
+
+        s_tilde = s_hat * gamma_elm + beta_elm
+
+        h = np.maximum(0, s_tilde)  # ReLU activation
+        x_batch_cache.append(h)
+
         layer_input = h
-    return np.exp(s) / np.sum(np.exp(s), axis=0)
 
 def CalculateCost(X, Y, W_el, b_el, lamda):
-
 	N = X.shape[1]
-	P = EvaluateClassifier(X, W_el, b_el)
+	P, _, _, _, _, _ = EvaluateClassifier(X, W_el, b_el)
 	loss = -np.log(np.diag(Y.T @ P))
 	reg_loss = 0
 	for elm in W_el:
@@ -66,12 +98,13 @@ def CalculateCost(X, Y, W_el, b_el, lamda):
 	return sum_loss / N + reg, sum_loss / N
 
 def ComputeAccuracy(X, y, W, b):
-	P = EvaluateClassifier(X, W, b)
+	P, _, _, _, _, _ = EvaluateClassifier(X, W, b)
 	predictions = np.argmax(P, axis=0)
 	return np.sum(predictions == y) / len(y)
 
+"""
 def ComputeGradients(X, Y, W, b, lamda):
-	P = EvaluateClassifier(X, W, b)
+	P, _, _ = EvaluateClassifier(X, W, b)
 	N = X.shape[1]
 	#calculate all gradients for the list of W and b of lenght L
 	grad_W = []
@@ -87,9 +120,7 @@ def ComputeGradients(X, Y, W, b, lamda):
 		layer_outputs.append(h)
 		layer_input = h
 		layer_inputs.append(layer_input)
-	# print("layer_inputs", len(layer_inputs))
-	# print("layer_outputs", len(layer_outputs))
-	# Backward pass
+
 	G = -(Y - P)
 	for i in range(len(W) - 1, -1, -1):
 		grad_W.append(G @ layer_inputs[i].T / N + 2 * lamda * W[i])
@@ -102,6 +133,49 @@ def ComputeGradients(X, Y, W, b, lamda):
 	grad_b = grad_b[::-1]
 
 	return grad_W, grad_b
+"""
+
+def ComputeGradients(X, Y, W, b, gamma, beta, lamda):
+	P, s_hat_list, s_list, x_batch_list, mean_list, var_list = EvaluateClassifier(X, W, b, gamma, beta)
+	N = X.shape[1]
+	L = len(W)
+
+	grad_W = []
+	grad_b = []
+	grad_gamma = []
+	grad_beta = []
+
+	G = -(Y - P)
+	for i in range(L - 1, -1, -1):
+
+		if i == L - 1:
+			grad_W.append(G @ x_batch_list[i].T / N + 2 * lamda * W[i])
+			grad_b.append(np.sum(G, axis=1).reshape(-1, 1) / N)
+			G = W[i].T @ G
+			G = G * (x_batch_list[i] > 0)  # ReLU derivative
+		
+		else:
+			grad_gamma.append(np.sum(G * s_hat_list[i], axis=1).reshape(-1, 1) / N)
+			grad_beta.append(np.sum(G, axis=1).reshape(-1, 1) / N)
+			G = G * gamma[i]
+			
+			G_1 = G * (1/np.sqrt(var_list[i] + 1e-8))
+			G_2 = G * (var_list[i] + 1e-8) ** (-3/2)
+			D = s_list[i] - mean_list[i]
+			c_elm = np.sum(G_2 * D, axis=1).reshape(-1, 1)
+			G = G_1 - np.sum(G_1, axis=1).reshape(-1, 1) / N - D * c_elm / N
+
+			grad_W.append(G @ x_batch_list[i].T / N + 2 * lamda * W[i])
+			grad_b.append(np.sum(G, axis=1).reshape(-1, 1) / N)
+			G = W[i].T @ G
+			G = G * (x_batch_list[i] > 0) 
+
+	grad_W = grad_W[::-1]
+	grad_b = grad_b[::-1]
+	grad_gamma = grad_gamma[::-1]
+	grad_beta = grad_beta[::-1]
+
+	return grad_W, grad_b, grad_gamma, grad_beta
 
 def ComputeGradsNum(X, Y, W, b, lamda, h_delta):
 	""" Converted from matlab code """
@@ -159,7 +233,7 @@ def MiniBatchGDCyclicLR(X_train, Y_train, labels_train, X_val, Y_val, labels_val
 	#initialize gamma and beta
 	for i, elm in enumerate(W):
 		if i < len(W) - 1:
-			gamma.append(np.ones((elm.shape[0], 1)))
+			gamma.append(np.ones((elm.shape[0], n_batch)))
 			beta.append(np.zeros((elm.shape[0], 1)))
 
 	for cycle in range(cycles):
@@ -168,7 +242,6 @@ def MiniBatchGDCyclicLR(X_train, Y_train, labels_train, X_val, Y_val, labels_val
 				eta = eta_min + step/eta_s * (eta_max - eta_min)
 			else:
 				eta = eta_max - (step - eta_s)/eta_s * (eta_max - eta_min)
-			# print(step)
 			eta_list.append(eta)
 
 			j_start = (step * n_batch) % n
@@ -179,15 +252,17 @@ def MiniBatchGDCyclicLR(X_train, Y_train, labels_train, X_val, Y_val, labels_val
 			X_batch = X_train[:, j_start:j_end]
 			Y_batch = Y_train[:, j_start:j_end]
 
-			res_grad_W, res_grad_b = ComputeGradients(X_batch, Y_batch, W, b, lambda_)
+
+
+			res_grad_W, res_grad_b, res_grad_gamma, res_grad_beta = ComputeGradients(X_batch, Y_batch, W, b, gamma, beta, lambda_)
 
 			for i in range(len(W)):
 				W[i] = W[i] - eta * res_grad_W[i]
 				b[i] = b[i] - eta * res_grad_b[i]
 
-			# for i in range(len(gamma)):
-			# 	gamma[i] = gamma[i] - eta * grad_gamma[i]
-			# 	beta[i] = beta[i] - eta * grad_beta[i]
+			for i in range(len(gamma)):
+				gamma[i] = gamma[i] - eta * res_grad_gamma[i]
+				beta[i] = beta[i] - eta * res_grad_beta[i]
 
 			if step % (eta_s/5) == 0:
 				cost_train, loss_train = CalculateCost(X_train, Y_train, W, b, lambda_)
@@ -245,7 +320,7 @@ size = 10000
 lambda_ = 0.01 #0.016 beste! 0, 0, 0.1, 1
 # eta = 0.001 #0.1, 0.001, 0.001, 0.001
 n_batch = 100
-layers = [50, 50, 10] #[50, 30, 20, 20, 10, 10, 10, 10] 
+layers = [50, 30, 10] #[50, 30, 20, 20, 10, 10, 10, 10] 
 
 training_data_1 = LoadBatch(training_data_1)
 # training_data_2 = LoadBatch(training_data_2)
