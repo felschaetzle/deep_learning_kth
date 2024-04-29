@@ -42,15 +42,6 @@ def InitializeParams(X_train, Y_train, layers):
 			b.append(np.zeros((layers[i], 1)))
 	print("W shape", len(W))
 	print("b shape", len(b))
-	# W_1 = np.random.normal(0, 1/np.sqrt(3072), (50, 3072))
-	# b_1 = np.zeros((50, 1))
-
-	# W_2 = np.random.normal(0, 1/np.sqrt(50), (10, 50))
-	# b_2 = np.zeros((10, 1))
-	# W.append(W_1)
-	# W.append(W_2)
-	# b.append(b_1)
-	# b.append(b_2)
 	return W, b
 
 def EvaluateClassifier(X, W, b):
@@ -61,22 +52,8 @@ def EvaluateClassifier(X, W, b):
         layer_input = h
     return np.exp(s) / np.sum(np.exp(s), axis=0)
 
-"""
-def EvaluateClassifier(X, W, b):
-	W_1 = W[0]
-	W_2 = W[1]
-	b_1 = b[0]
-	b_2 = b[1]
-	s_1 = W_1@X + b_1
-	h = np.maximum(0, s_1)
-	s = W_2@h + b_2
-	p = np.exp(s) / np.sum(np.exp(s), axis=0)
-	return p
-"""
-def CalculateCost(X, Y, W_1_i, b_1_i, W_2_i, b_2_i, lamda):
+def CalculateCost(X, Y, W_el, b_el, lamda):
 
-	W_el = [W_1_i, W_2_i]
-	b_el = [b_1_i, b_2_i]
 	N = X.shape[1]
 	P = EvaluateClassifier(X, W_el, b_el)
 	loss = -np.log(np.diag(Y.T @ P))
@@ -88,47 +65,10 @@ def CalculateCost(X, Y, W_1_i, b_1_i, W_2_i, b_2_i, lamda):
 	sum_loss = np.sum(loss)
 	return sum_loss / N + reg, sum_loss / N
 
-"""
-def CalculateCost(X, Y, W_1, b_1, W_2, b_2, lamda):
-	N = X.shape[1]
-	W_t = [W_1, W_2]
-	b_t = [b_1, b_2]
-	P = EvaluateClassifier(X, W_t, b_t)
-	loss = -np.log(np.diag(Y.T @ P))
-	reg = lamda * (np.sum(W_1**2) + np.sum(W_2**2))
-	sum_loss = np.sum(loss)
-	return sum_loss / N + reg, sum_loss / N
-"""
-
 def ComputeAccuracy(X, y, W, b):
 	P = EvaluateClassifier(X, W, b)
 	predictions = np.argmax(P, axis=0)
 	return np.sum(predictions == y) / len(y)
-
-"""
-def ComputeGradients(X, Y, W, b, lamda):
-	W_1 = W[0]
-	W_2 = W[1]
-	b_1 = b[0]
-	b_2 = b[1]
-
-	P = EvaluateClassifier(X, W, b)
-	N = X.shape[1]
-	# print("P shape", P.shape, "Y shape", Y.shape)
-	G = -(Y - P)
-	# print(G.shape, "G shape")
-	forward = W_1@X + b_1
-	grad_W_2 = G @ np.maximum(0, forward).T / N + 2 * lamda * W_2
-	grad_b_2 = np.sum(G, axis=1).reshape(10, 1) / N
-	G = W_2.T @ G
-	G = G * (forward > 0)
-	grad_W_1 = G @ X.T / N + 2 * lamda * W_1
-	grad_b_1 = np.sum(G, axis=1).reshape(50, 1) / N
-
-	g_W = [grad_W_1, grad_W_2]
-	g_b = [grad_b_1, grad_b_2]
-	return g_W, g_b
-"""
 
 def ComputeGradients(X, Y, W, b, lamda):
 	P = EvaluateClassifier(X, W, b)
@@ -163,257 +103,38 @@ def ComputeGradients(X, Y, W, b, lamda):
 
 	return grad_W, grad_b
 
-"""
-	G = -(Y - P)
-	for i in range(len(W)-1, -1, -1):
-		if i == len(W) - 1:
-			s = s_cache[i-1]
-			# print("G shape", G.shape)
-			# print("s shape", s.shape)
-			grad_W.append(G @ np.maximum(0, s).T / N + 2 * lamda * W[i])
-			grad_b.append(np.sum(G, axis=1).reshape(W[i].shape[0], 1) / N)
-			G = W[i].T @ G
-			G = G * (s > 0)
-
-		else:
-			h = h_cache[i]
-			# print("G shape", G.shape)
-			# print("h shape", h.shape)
-			grad_W.append(G @ h.T / N + 2 * lamda * W[i])
-			grad_b.append(np.sum(G, axis=1).reshape(W[i].shape[0], 1) / N)
-			G = W[i].T @ G
-			G = G * (h > 0)
-	
-	grad_W = grad_W[::-1]
-	grad_b = grad_b[::-1]
-	return grad_W, grad_b
-
-	G = -(Y - P)
-	forward = W_1@X + b_1
-	grad_W_2 = G @ np.maximum(0, forward).T / N + 2 * lamda * W_2
-	grad_b_2 = np.sum(G, axis=1).reshape(10, 1) / N
-	G = W_2.T @ G
-	G = G * (forward > 0)
-	grad_W_1 = G @ X.T / N + 2 * lamda * W_1
-	grad_b_1 = np.sum(G, axis=1).reshape(50, 1) / N
-	return grad_W_1, grad_b_1, grad_W_2, grad_b_2
-"""
-
 def ComputeGradsNum(X, Y, W, b, lamda, h_delta):
 	""" Converted from matlab code """
-	# W_1 = W[0]
-	# W_2 = W[1]
-	# b_1 = b[0]
-	# b_2 = b[1]
 
-	no 	= 	W[-1].shape[0]
-	print("no", no)
-	d 	= 	X.shape[0]
+	gra_W = []
+	gra_b = []
+	for i in range(len(W)):
+		gra_W.append(np.zeros(W[i].shape))
+		gra_b.append(np.zeros((W[i].shape[0], 1)))
 
-	grad_W_1 = np.zeros(W_1.shape)
-	grad_b_1 = np.zeros((50, 1))
-	grad_W_2 = np.zeros(W_2.shape)
-	grad_b_2 = np.zeros((no, 1))
-
-
-	c,_ = CalculateCost(X, Y, W[0], b[0], W[1], b[1], lamda)
+	c,_ = CalculateCost(X, Y, W, b, lamda)
 	print(c)
 	print("c")
 
+	for i in range(len(W)):
+		for j in range(W[i].shape[0]):
+			for k in range(W[i].shape[1]):
+				W_elm = np.array(W[i])
+				W_elm[j,k] = W_elm[j,k] + h_delta
+				W_try = W.copy()
+				W_try[i] = W_elm
+				c2,_ = CalculateCost(X, Y, W_try, b, lamda)
+				gra_W[i][j,k] = (c2-c) / h_delta
 
-	for i in range(len(b[1])):
-		b_try = np.array(b[1])
-		b_try[i] += h_delta
-		c2,_ = CalculateCost(X, Y, W[0], b[0], W[1], b_try, lamda)
-		grad_b_2[i] = (c2-c) / h_delta
+		for j in range(len(b[i])):
+			b_elm = np.array(b[i])
+			b_elm[j] = b_elm[j] + h_delta
+			b_try = b.copy()
+			b_try[i] = b_elm
+			c2,_ = CalculateCost(X, Y, W, b_try, lamda)
+			gra_b[i][j] = (c2-c) / h_delta
 
-	for i in range(W[1].shape[0]):
-		for j in range(W[1].shape[1]):
-			W_try = np.array(W[1])
-			W_try[i,j] += h_delta
-			c2,_ = CalculateCost(X, Y, W[0], b[0], W_try, b[1], lamda)
-			grad_W_2[i,j] = (c2-c) / h_delta
-	
-	for i in range(len(b[0])):
-		b_try = np.array(b[0])
-		b_try[i] += h_delta
-		c2,_ = CalculateCost(X, Y, W[0], b_try, W[1], b[1], lamda)
-		grad_b_1[i] = (c2-c) / h_delta
-
-	for i in range(W[0].shape[0]):
-		for j in range(W[0].shape[1]):
-			W_try = np.array(W[0])
-			W_try[i,j] += h_delta
-			c2,_ = CalculateCost(X, Y, W_try, b[0], W[1], b[1], lamda)
-			grad_W_1[i,j] = (c2-c) / h_delta
-	
-	g_W = [grad_W_1, grad_W_2]
-	g_b = [grad_b_1, grad_b_2]
-
-	return g_W, g_b
-
-# def ComputeGradsNum(X, Y, W, b, lambda_, h_size=1e-5):
-#     """
-#     Computes gradients using finite differences for testing purposes.
-
-#     Arguments:
-#     X -- input data of shape (input size, number of examples)
-#     Y -- one-hot encoded labels of shape (output size, number of examples)
-#     W_list -- list of weight matrices
-#     b_list -- list of bias vectors
-#     lambda_ -- regularization parameter
-#     h_size -- small value for computing finite differences (default 1e-5)
-
-#     Returns:
-#     grad_W_list -- list of gradients of the cost function with respect to the weights
-#     grad_b_list -- list of gradients of the cost function with respect to the biases
-#     """
-#     # Initialize gradient lists
-#     grad_W_list = [np.zeros_like(W_elm) for W_elm in W]
-#     grad_b_list = [np.zeros_like(b_elm) for b_elm in b]
-
-#     c, _ = CalculateCost(X, Y, W[0], b[0], W[1], b[1], lambda_)
-#     print("c", c)
-
-#     print("done!")
-
-
-#     # Compute gradients using finite differences
-#     for layer in range(len(W)):
-#         W_elm = W[layer]
-#         b_elm = b[layer]
-
-#         for i in range(W[layer].shape[0]):
-#             for j in range(W[layer].shape[1]):
-#                 # Compute gradient for W[i, j]
-#                 W_try = W.copy()
-#                 W_try[layer][i, j] += h_size
-#                 c2, _ = CalculateCost(X, Y, W_try[0], b[0],W_try[1], b[1], lambda_)
-#                 # print(c2, c)
-#                 # W_try = W.copy()
-#                 # W_try[layer][i, j] -= h_size
-#                 # c1, _ = CalculateCost(X, Y, W_try[0], b[0],W_try[1], b[1], lambda_)
-
-#                 grad_W_list[layer][i, j] = (c2 - c) / (h_size)
-
-#         for i in range(b[layer].shape[0]):
-#             # Compute gradient for b[i]
-#             b_try = b.copy()
-#             b_try[layer][i] += h_size
-#             c2, _ = CalculateCost(X, Y, W[0], b_try[0],W[1], b_try[1], lambda_)
-
-#             # b_try = b.copy()
-#             # b_try[layer][i] -= h_size
-#             # c1, _ = CalculateCost(X, Y, W, b_try, lambda_)
-
-#             grad_b_list[layer][i] = (c2 - c) / (h_size)
-
-#     return grad_W_list, grad_b_list
-
-
-# def ComputeGradsNum(X, Y, W, b, lamda, delta_h):
-# 	""" Converted from matlab code """
-# 	no 	=  10
-# 	d 	=  X.shape[0]
-
-# 	grad_W = []
-# 	grad_b = []
-
-# 	for i in range(len(W)):
-# 		grad_W.append(np.zeros(W[i].shape))
-# 		grad_b.append(np.zeros((W[i].shape[0], 1)))
-
-# 	c,_ = CalculateCost(X, Y, W, b, lamda)
-
-# 	for i in range(len(b)):
-# 		for j in range(len(b[i])):
-# 			b_try = b.copy()
-# 			b_try[i][j] += delta_h
-# 			c2,_ = CalculateCost(X, Y, W, b_try, lamda)
-# 			grad_b[i][j] = (c2-c) / delta_h
-
-# 	for i in range(len(W)):
-# 		for j in range(W[i].shape[0]):
-# 			for k in range(W[i].shape[1]):
-# 				W_try = W.copy()
-# 				W_try[i][j,k] += delta_h
-# 				c2,_ = CalculateCost(X, Y, W_try, b, lamda)
-# 				grad_W[i][j,k] = (c2-c) / delta_h
-
-# 	return grad_W, grad_b
-
-
-	# no 	= 	W_2.shape[0]
-	# d 	= 	X.shape[0]
-
-	# grad_W_1 = np.zeros(W_1.shape)
-	# grad_b_1 = np.zeros((50, 1))
-	# grad_W_2 = np.zeros(W_2.shape)
-	# grad_b_2 = np.zeros((no, 1))
-
-	# c,_ = CalculateCost(X, Y, W_1, b_1, W_2, b_2, lamda)
-
-	# for i in range(len(b_2)):
-	# 	b_try = np.array(b_2)
-	# 	b_try[i] += h
-	# 	c2,_ = CalculateCost(X, Y, W_1, b_1, W_2, b_try, lamda)
-	# 	grad_b_2[i] = (c2-c) / h
-
-	# for i in range(W_2.shape[0]):
-	# 	for j in range(W_2.shape[1]):
-	# 		W_try = np.array(W_2)
-	# 		W_try[i,j] += h
-	# 		c2,_ = CalculateCost(X, Y, W_1, b_1, W_try, b_2, lamda)
-	# 		grad_W_2[i,j] = (c2-c) / h
-	
-	# for i in range(len(b_1)):
-	# 	b_try = np.array(b_1)
-	# 	b_try[i] += h
-	# 	c2,_ = CalculateCost(X, Y, W_1, b_try, W_2, b_2, lamda)
-	# 	grad_b_1[i] = (c2-c) / h
-
-	# for i in range(W_1.shape[0]):
-	# 	for j in range(W_1.shape[1]):
-	# 		W_try = np.array(W_1)
-	# 		W_try[i,j] += h
-	# 		c2,_ = CalculateCost(X, Y, W_try, b_1, W_2, b_2, lamda)
-	# 		grad_W_1[i,j] = (c2-c) / h
-	
-	# return [grad_W_1, grad_b_1, grad_W_2, grad_b_2]
-
-def ComputeGradsNumSlow(X, Y, P, W, b, lamda, h):
-	""" Converted from matlab code """
-	no 	= 	W.shape[0]
-	d 	= 	X.shape[0]
-
-	grad_W = np.zeros(W.shape)
-	grad_b = np.zeros((no, 1))
-	
-	for i in range(len(b)):
-		b_try = np.array(b)
-		b_try[i] -= h
-		c1,_ = CalculateCost(X, Y, W, b_try, lamda)
-
-		b_try = np.array(b)
-		b_try[i] += h
-		c2,_ = CalculateCost(X, Y, W, b_try, lamda)
-
-		grad_b[i] = (c2-c1) / (2*h)
-
-	for i in range(W.shape[0]):
-		for j in range(W.shape[1]):
-			W_try = np.array(W)
-			W_try[i,j] -= h
-			c1,_ = CalculateCost(X, Y, W_try, b, lamda)
-
-			W_try = np.array(W)
-			W_try[i,j] += h
-			c2,_ = CalculateCost(X, Y, W_try, b, lamda)
-
-			grad_W[i,j] = (c2-c1) / (2*h)
-
-	return [grad_W, grad_b]
-
+	return gra_W, gra_b
 
 def MiniBatchGDCyclicLR(X_train, Y_train, labels_train, X_val, Y_val, labels_val, W, b, lambda_, n_batch):
 	eta_s = int(5 * (10000 / n_batch))
@@ -458,24 +179,11 @@ def MiniBatchGDCyclicLR(X_train, Y_train, labels_train, X_val, Y_val, labels_val
 			X_batch = X_train[:, j_start:j_end]
 			Y_batch = Y_train[:, j_start:j_end]
 
-			grad_W, grad_b = ComputeGradients(X_batch, Y_batch, W, b, lambda_)
-
-			num_grad_W, num_grad_b = ComputeGradsNum(X_batch, Y_batch, W, b, lambda_, 1e-5)
-
-			print("grad_W", grad_W[0].shape, grad_W[1].shape)
-			print("num_grad_W", num_grad_W[0].shape, num_grad_W[1].shape)
-
-			print(np.allclose(grad_W[0], num_grad_W[0], rtol=1e-3, atol=1e-3))
-			print(np.allclose(grad_W[1], num_grad_W[1], rtol=1e-3, atol=1e-3))
-			# print(np.allclose(grad_W[2], num_grad_W[2], rtol=1e-3, atol=1e-3))
-			print(np.allclose(grad_b[0], num_grad_b[0], rtol=1e-3, atol=1e-3))
-			print(np.allclose(grad_b[1], num_grad_b[1], rtol=1e-3, atol=1e-3))
-			# print(np.allclose(grad_b[2], num_grad_b[2], rtol=1e-3, atol=1e-3))
-			print("done!")
+			res_grad_W, res_grad_b = ComputeGradients(X_batch, Y_batch, W, b, lambda_)
 
 			for i in range(len(W)):
-				W[i] = W[i] - eta * grad_W[i]
-				b[i] = b[i] - eta * grad_b[i]
+				W[i] = W[i] - eta * res_grad_W[i]
+				b[i] = b[i] - eta * res_grad_b[i]
 
 			# for i in range(len(gamma)):
 			# 	gamma[i] = gamma[i] - eta * grad_gamma[i]
@@ -536,8 +244,8 @@ test_data_file = 'assignment1/Datasets/test_batch'
 size = 10000
 lambda_ = 0.01 #0.016 beste! 0, 0, 0.1, 1
 # eta = 0.001 #0.1, 0.001, 0.001, 0.001
-n_batch = 5
-layers = [50, 10] #[50, 30, 20, 20, 10, 10, 10, 10] 
+n_batch = 100
+layers = [50, 50, 10] #[50, 30, 20, 20, 10, 10, 10, 10] 
 
 training_data_1 = LoadBatch(training_data_1)
 # training_data_2 = LoadBatch(training_data_2)
@@ -555,35 +263,8 @@ X_train_1, Y_train_1, labels_train_1 = Preprocess(training_data_1)
 
 X_test, Y_test, labels_test = Preprocess(test_data)
 
-data_size = 5
+data_size = 10000
 X_train, Y_train, labels_train = X_train_1[:,:data_size], Y_train_1[:,:data_size], labels_train_1[:data_size]
-
-W_1 = np.random.normal(0, 1/np.sqrt(3072), (50, 3072))
-b_1 = np.zeros((50, 1))
-
-W_2 = np.random.normal(0, 1/np.sqrt(50), (10, 50))
-b_2 = np.zeros((10, 1))
-
-W = [W_1, W_2]
-b = [b_1, b_2]
-
-
-grad_W, grad_b = ComputeGradients(X_train, Y_train, W, b, lambda_)
-
-num_grad_W, num_grad_b = ComputeGradsNum(X_train, Y_train, W, b, lambda_, 1e-6)
-
-print("grad_W", grad_W[0].shape, grad_W[1].shape)
-print("num_grad_W", num_grad_W[0].shape, num_grad_W[1].shape)
-
-print(np.allclose(grad_W[0], num_grad_W[0], rtol=1e-3, atol=1e-3))
-print(np.allclose(grad_W[1], num_grad_W[1], rtol=1e-3, atol=1e-3))
-# print(np.allclose(grad_W[2], num_grad_W[2], rtol=1e-3, atol=1e-3))
-print(np.allclose(grad_b[0], num_grad_b[0], rtol=1e-3, atol=1e-3))
-print(np.allclose(grad_b[1], num_grad_b[1], rtol=1e-3, atol=1e-3))
-# print(np.allclose(grad_b[2], num_grad_b[2], rtol=1e-3, atol=1e-3))
-print("done!")
-
-
 
 # X_train = np.concatenate((X_train_1, X_train_2, X_train_3, X_train_4, X_train_5), axis=1)
 # Y_train = np.concatenate((Y_train_1, Y_train_2, Y_train_3, Y_train_4, Y_train_5), axis=1)
@@ -592,19 +273,19 @@ print("done!")
 # print("train", X_train.shape, Y_train.shape, labels_train.shape)
 
 #Randomly cut out 1000 samples for validation
-# val_size = 5
-# np.random.seed(0)
-# indices = np.random.permutation(X_train.shape[1])
-# X_val = X_train[:, indices[:val_size]]
-# Y_val = Y_train[:, indices[:val_size]]
-# labels_val = labels_train[indices[:val_size]]
+val_size = 500
+np.random.seed(0)
+indices = np.random.permutation(X_train.shape[1])
+X_val = X_train[:, indices[:val_size]]
+Y_val = Y_train[:, indices[:val_size]]
+labels_val = labels_train[indices[:val_size]]
 
-# X_train = X_train[:, indices[val_size:]]
-# Y_train = Y_train[:, indices[val_size:]]
-# labels_train = labels_train[indices[val_size:]]
+X_train = X_train[:, indices[val_size:]]
+Y_train = Y_train[:, indices[val_size:]]
+labels_train = labels_train[indices[val_size:]]
 
-# print("train", X_train.shape, Y_train.shape, labels_train.shape)
-# print("val", X_val.shape, Y_val.shape, labels_val.shape)
+print("train", X_train.shape, Y_train.shape, labels_train.shape)
+print("val", X_val.shape, Y_val.shape, labels_val.shape)
 
 
 # # lambdas_ = [0.01, 0.013, 0.016, 0.02, 0.03]
@@ -612,44 +293,33 @@ print("done!")
 # # 	print("@@@@@@@@@@@@@@@@@@@@@@@@@@")
 # # 	print("lambda: ", lambda_)
 
-# # W, b = InitializeParams(X_train, Y_train, layers)
-# W_1 = np.random.normal(0, 1/np.sqrt(3072), (50, 3072))
-# b_1 = np.zeros((50, 1))
+W, b = InitializeParams(X_train, Y_train, layers)
 
-# W_2 = np.random.normal(0, 1/np.sqrt(50), (10, 50))
-# b_2 = np.zeros((10, 1))
+res_dict = MiniBatchGDCyclicLR(X_train, Y_train, labels_train, X_val, Y_val, labels_val, W, b, lambda_, n_batch)
 
-# W = [W_1, W_2]
-# b = [b_1, b_2]
+test_accuracy = ComputeAccuracy(X_test, labels_test, res_dict["W"], res_dict["b"])
 
-# res_dict = MiniBatchGDCyclicLR(X_train, Y_train, labels_train, X_val, Y_val, labels_val, W, b, lambda_, n_batch)
+print("Test accuracy: ", test_accuracy)
 
-# test_accuracy = ComputeAccuracy(X_test, labels_test, res_dict["W"], res_dict["b"])
-
-# print("Test accuracy: ", test_accuracy)
-
-# # # # # Montage(res_dict["W_1"])
-# # # # # Montage(res_dict["W_2"])
-
-# #plot the cost to a new plot
-# plt.figure()
-# # plot the update list on the x-axis
-# plt.plot(res_dict["update_list"], res_dict["costs_train"], label="Training cost")
-# plt.plot(res_dict["update_list"], res_dict["costs_val"], label="Validation cost")
-# plt.plot(res_dict["update_list"], res_dict["losses_train"], label="Training loss")
-# plt.plot(res_dict["update_list"], res_dict["losses_val"], label="Validation loss")
-# plt.title("Training cost vs Validation cost")
-# plt.legend()
-# plt.xlabel("Updates")
-# plt.ylabel("Cost")
+#plot the cost to a new plot
+plt.figure()
+# plot the update list on the x-axis
+plt.plot(res_dict["update_list"], res_dict["costs_train"], label="Training cost")
+plt.plot(res_dict["update_list"], res_dict["costs_val"], label="Validation cost")
+plt.plot(res_dict["update_list"], res_dict["losses_train"], label="Training loss")
+plt.plot(res_dict["update_list"], res_dict["losses_val"], label="Validation loss")
+plt.title("Training cost vs Validation cost")
+plt.legend()
+plt.xlabel("Updates")
+plt.ylabel("Cost")
 
 
-# #plot the accuracy to a new plot
-# plt.figure()
-# plt.plot(res_dict["update_list"], res_dict["accuracies_train"], label="Training accuracy")
-# plt.plot(res_dict["update_list"], res_dict["accuracies_val"], label="Validation accuracy")
-# plt.title("Training accuracy vs Validation accuracy")
-# plt.legend()
-# plt.xlabel("Updates")
-# plt.ylabel("Accuracy")
-# plt.show()
+#plot the accuracy to a new plot
+plt.figure()
+plt.plot(res_dict["update_list"], res_dict["accuracies_train"], label="Training accuracy")
+plt.plot(res_dict["update_list"], res_dict["accuracies_val"], label="Validation accuracy")
+plt.title("Training accuracy vs Validation accuracy")
+plt.legend()
+plt.xlabel("Updates")
+plt.ylabel("Accuracy")
+plt.show()
