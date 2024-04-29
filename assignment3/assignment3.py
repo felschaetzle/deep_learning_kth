@@ -159,45 +159,77 @@ def ComputeGradients(X, Y, W, b, lamda, gamma, beta):
 	grad_beta = grad_beta[::-1]
 	return grad_W, grad_b, grad_gamma, grad_beta
 
-def ComputeGradsNum(X, Y, W_1, b_1, W_2, b_2, lamda, h):
+def ComputeGradsNum(X, Y, W, b, lamda, h):
 	""" Converted from matlab code """
-	no 	= 	W_2.shape[0]
-	d 	= 	X.shape[0]
+	no 	=  10
+	d 	=  X.shape[0]
 
-	grad_W_1 = np.zeros(W_1.shape)
-	grad_b_1 = np.zeros((50, 1))
-	grad_W_2 = np.zeros(W_2.shape)
-	grad_b_2 = np.zeros((no, 1))
+	grad_W = []
+	grad_b = []
+	grad_gamma = []
+	grad_beta = []
 
-	c,_ = CalculateCost(X, Y, W_1, b_1, W_2, b_2, lamda)
+	for i in range(len(W)):
+		grad_W.append(np.zeros(W[i].shape))
+		grad_b.append(np.zeros((W[i].shape[0], 1)))
+		grad_gamma.append(np.zeros((W[i].shape[0], 1)))
+		grad_beta.append(np.zeros((W[i].shape[0], 1)))
 
-	for i in range(len(b_2)):
-		b_try = np.array(b_2)
+	c,_ = CalculateCost(X, Y, W, b, lamda, gamma, beta)
+
+	for i in range(len(b)):
+		b_try = np.array(b)
 		b_try[i] += h
-		c2,_ = CalculateCost(X, Y, W_1, b_1, W_2, b_try, lamda)
-		grad_b_2[i] = (c2-c) / h
+		c2,_ = CalculateCost(X, Y, W, b_try, lamda, gamma, beta)
+		grad_b[i] = (c2-c) / h
 
-	for i in range(W_2.shape[0]):
-		for j in range(W_2.shape[1]):
-			W_try = np.array(W_2)
-			W_try[i,j] += h
-			c2,_ = CalculateCost(X, Y, W_1, b_1, W_try, b_2, lamda)
-			grad_W_2[i,j] = (c2-c) / h
-	
-	for i in range(len(b_1)):
-		b_try = np.array(b_1)
-		b_try[i] += h
-		c2,_ = CalculateCost(X, Y, W_1, b_try, W_2, b_2, lamda)
-		grad_b_1[i] = (c2-c) / h
+	for i in range(len(W)):
+		for j in range(W[i].shape[0]):
+			for k in range(W[i].shape[1]):
+				W_try = np.array(W[i])
+				W_try[j,k] += h
+				c2,_ = CalculateCost(X, Y, W_try, b, lamda, gamma, beta)
+				grad_W[i][j,k] = (c2-c) / h
+		
 
-	for i in range(W_1.shape[0]):
-		for j in range(W_1.shape[1]):
-			W_try = np.array(W_1)
-			W_try[i,j] += h
-			c2,_ = CalculateCost(X, Y, W_try, b_1, W_2, b_2, lamda)
-			grad_W_1[i,j] = (c2-c) / h
+
+	# no 	= 	W_2.shape[0]
+	# d 	= 	X.shape[0]
+
+	# grad_W_1 = np.zeros(W_1.shape)
+	# grad_b_1 = np.zeros((50, 1))
+	# grad_W_2 = np.zeros(W_2.shape)
+	# grad_b_2 = np.zeros((no, 1))
+
+	# c,_ = CalculateCost(X, Y, W_1, b_1, W_2, b_2, lamda)
+
+	# for i in range(len(b_2)):
+	# 	b_try = np.array(b_2)
+	# 	b_try[i] += h
+	# 	c2,_ = CalculateCost(X, Y, W_1, b_1, W_2, b_try, lamda)
+	# 	grad_b_2[i] = (c2-c) / h
+
+	# for i in range(W_2.shape[0]):
+	# 	for j in range(W_2.shape[1]):
+	# 		W_try = np.array(W_2)
+	# 		W_try[i,j] += h
+	# 		c2,_ = CalculateCost(X, Y, W_1, b_1, W_try, b_2, lamda)
+	# 		grad_W_2[i,j] = (c2-c) / h
 	
-	return [grad_W_1, grad_b_1, grad_W_2, grad_b_2]
+	# for i in range(len(b_1)):
+	# 	b_try = np.array(b_1)
+	# 	b_try[i] += h
+	# 	c2,_ = CalculateCost(X, Y, W_1, b_try, W_2, b_2, lamda)
+	# 	grad_b_1[i] = (c2-c) / h
+
+	# for i in range(W_1.shape[0]):
+	# 	for j in range(W_1.shape[1]):
+	# 		W_try = np.array(W_1)
+	# 		W_try[i,j] += h
+	# 		c2,_ = CalculateCost(X, Y, W_try, b_1, W_2, b_2, lamda)
+	# 		grad_W_1[i,j] = (c2-c) / h
+	
+	# return [grad_W_1, grad_b_1, grad_W_2, grad_b_2]
 
 def ComputeGradsNumSlow(X, Y, P, W, b, lamda, h):
 	""" Converted from matlab code """
@@ -231,44 +263,6 @@ def ComputeGradsNumSlow(X, Y, P, W, b, lamda, h):
 			grad_W[i,j] = (c2-c1) / (2*h)
 
 	return [grad_W, grad_b]
-
-def MiniBatchGD(X_train, Y_train, labels_train, X_val, Y_val, labels_val, W_1, b_1, W_2, b_2, lambda_, n_batch, eta, n_epochs):
-	n = X_train.shape[1]
-	print(n)
-	costs_train = []
-	costs_val = []
-	losses_train = []
-	losses_val = []
-	accuracies_train = []
-	accuracies_val = []
-	for epoch in range(n_epochs):
-		for j in range(1, int(n/n_batch)):
-			j_start = (j-1)*n_batch + 1
-			j_end = j*n_batch
-			X_batch = X_train[:, j_start:j_end]
-			Y_batch = Y_train[:, j_start:j_end]
-			grad_W_1, grad_b_1, grad_W_2, grad_b_2 = ComputeGradients(X_batch, Y_batch, W_1, b_1, W_2, b_2, lambda_)
-			W_1 = W_1 - eta * grad_W_1
-			b_1 = b_1 - eta * grad_b_1
-
-			W_2 = W_2 - eta * grad_W_2
-			b_2 = b_2 - eta * grad_b_2
-
-		cost_train, loss_train = CalculateCost(X_train, Y_train, W_1, b_1, W_2, b_2, lambda_)
-		costs_train.append(cost_train)
-		losses_train.append(loss_train)
-		accuracy_train = ComputeAccuracy(X_train, labels_train, W_1, b_1, W_2, b_2)
-		accuracies_train.append(accuracy_train)
-
-		cost_val, loss_val = CalculateCost(X_val, Y_val, W_1, b_1, W_2, b_2, lambda_)
-		costs_val.append(cost_val)
-		losses_val.append(loss_val)
-		accuracy_val = ComputeAccuracy(X_val, labels_val, W_1, b_1, W_2, b_2)
-		accuracies_val.append(accuracy_val)
-
-		if epoch % 10 == 0:
-			print("Epoch: ", epoch, "Cost: ", cost_train, "Accuracy: ", accuracy_train)
-	return {"costs_train": costs_train, "accuracies_train": accuracies_train, "costs_val": costs_val, "losses_train": losses_train, "losses_val": losses_val, "accuracies_val": accuracies_val, "W_1": W_1, "b_1": b_1, "W_2": W_2, "b_2": b_2}	
 
 def MiniBatchGDCyclicLR(X_train, Y_train, labels_train, X_val, Y_val, labels_val, W, b, lambda_, n_batch):
 	eta_s = int(5 * (45000 / n_batch))
@@ -378,8 +372,7 @@ test_data_file = 'assignment1/Datasets/test_batch'
 size = 10000
 lambda_ = 0.005 #0.016 beste! 0, 0, 0.1, 1
 # eta = 0.001 #0.1, 0.001, 0.001, 0.001
-n_batch = 100
-# n_epochs = 10
+n_batch = 10
 layers = [50, 50, 10] #[50, 30, 20, 20, 10, 10, 10, 10] 
 
 training_data_1 = LoadBatch(training_data_1)
@@ -398,7 +391,8 @@ X_train_5, Y_train_5, labels_train_5 = Preprocess(training_data_5)
 
 X_test, Y_test, labels_test = Preprocess(test_data)
 
-X_train, Y_train, labels_train = X_train_1, Y_train_1, labels_train_1
+X_train, Y_train, labels_train = X_train_1[:,:100], Y_train_1[:,:100], labels_train_1[:100]
+
 
 # X_train = np.concatenate((X_train_1, X_train_2, X_train_3, X_train_4, X_train_5), axis=1)
 # Y_train = np.concatenate((Y_train_1, Y_train_2, Y_train_3, Y_train_4, Y_train_5), axis=1)
@@ -407,14 +401,15 @@ X_train, Y_train, labels_train = X_train_1, Y_train_1, labels_train_1
 # print("train", X_train.shape, Y_train.shape, labels_train.shape)
 
 #Randomly cut out 1000 samples for validation
+val_size = 5
 indices = np.random.permutation(X_train.shape[1])
-X_val = X_train[:, indices[:500]]
-Y_val = Y_train[:, indices[:500]]
-labels_val = labels_train[indices[:500]]
+X_val = X_train[:, indices[:val_size]]
+Y_val = Y_train[:, indices[:val_size]]
+labels_val = labels_train[indices[:val_size]]
 
-X_train = X_train[:, indices[500:]]
-Y_train = Y_train[:, indices[500:]]
-labels_train = labels_train[indices[500:]]
+X_train = X_train[:, indices[val_size:]]
+Y_train = Y_train[:, indices[val_size:]]
+labels_train = labels_train[indices[val_size:]]
 
 print("train", X_train.shape, Y_train.shape, labels_train.shape)
 print("val", X_val.shape, Y_val.shape, labels_val.shape)
