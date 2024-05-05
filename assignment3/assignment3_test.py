@@ -229,7 +229,7 @@ def MiniBatchGDCyclicLR(X_train, Y_train, labels_train, X_val, Y_val, labels_val
 	#initialize gamma and beta
 	for i, elm in enumerate(W):
 		if i < len(W) - 1:
-			gamma.append(np.ones((elm.shape[0], n_batch)))
+			gamma.append(np.ones((elm.shape[0], 1)))
 			beta.append(np.zeros((elm.shape[0], 1)))
 			mean_global.append(np.zeros((elm.shape[0], 1)))
 			variance_global.append(np.zeros((elm.shape[0], 1)))
@@ -252,7 +252,6 @@ def MiniBatchGDCyclicLR(X_train, Y_train, labels_train, X_val, Y_val, labels_val
 
 			res_grad_W, res_grad_b, res_grad_gamma, res_grad_beta, mean_update, variance_update = ComputeGradients(X_batch, Y_batch, W, b, gamma, beta, lambda_)
 
-
 			for i in range(len(W)):
 				W[i] = W[i] - eta * res_grad_W[i]
 				b[i] = b[i] - eta * res_grad_b[i]
@@ -269,19 +268,19 @@ def MiniBatchGDCyclicLR(X_train, Y_train, labels_train, X_val, Y_val, labels_val
 				cost_train, loss_train = CalculateCost(X_train, Y_train, W, b, gamma, beta, lambda_, m=mean_global, v=variance_global)
 				costs_train.append(cost_train)
 				losses_train.append(loss_train)
-				accuracy_train = ComputeAccuracy(X_train, labels_train, W, b, m=mean_global, v=variance_global)
+				accuracy_train = ComputeAccuracy(X_train, labels_train, W, b, gamma, beta, m=mean_global, v=variance_global)
 				accuracies_train.append(accuracy_train)
 
 				cost_val, loss_val = CalculateCost(X_val, Y_val, W, b, gamma, beta, lambda_, m=mean_global, v=variance_global)
 				costs_val.append(cost_val)
 				losses_val.append(loss_val)
-				accuracy_val = ComputeAccuracy(X_val, labels_val, W, b, m=mean_global, v=variance_global)
+				accuracy_val = ComputeAccuracy(X_val, labels_val, W, b, gamma, beta, m=mean_global, v=variance_global)
 				accuracies_val.append(accuracy_val)
 				update_list.append(step + (2*eta_s)*(cycle+1))
 
-				print("Step: ", step, "Cost: ", cost_train, "Accuracy: ", accuracy_train)
+				print("Step: ", step, "Cost: ", cost_train, "Accuracy: ", accuracy_train, accuracy_val)
 	
-	return {"costs_train": costs_train, "accuracies_train": accuracies_train, "costs_val": costs_val, "losses_train": losses_train, "losses_val": losses_val, "accuracies_val": accuracies_val, "W": W, "b": b, "update_list": update_list, "mean": mean_global, "variance": variance_global}	
+	return {"costs_train": costs_train, "accuracies_train": accuracies_train, "costs_val": costs_val, "losses_train": losses_train, "losses_val": losses_val, "accuracies_val": accuracies_val, "W": W, "b": b, "update_list": update_list, "mean": mean_global, "variance": variance_global, "gamma": gamma, "beta": beta}	
 
 def Visualize(data):
     # reshape the data
@@ -373,7 +372,7 @@ W, b = InitializeParams(X_train, Y_train, layers)
 
 res_dict = MiniBatchGDCyclicLR(X_train, Y_train, labels_train, X_val, Y_val, labels_val, W, b, lambda_, n_batch)
 
-test_accuracy = ComputeAccuracy(X_test, labels_test, res_dict["W"], res_dict["b"], m=res_dict["mean"], v=res_dict["variance"])
+test_accuracy = ComputeAccuracy(X_test, labels_test, res_dict["W"], res_dict["b"], res_dict["gamma"], res_dict["beta"], m=res_dict["mean"], v=res_dict["variance"])
 
 print("Test accuracy: ", test_accuracy)
 
