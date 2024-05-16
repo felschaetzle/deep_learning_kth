@@ -28,17 +28,17 @@ def CreateOneHot(labels):
     one_hot_labels[np.arange(len(labels)), labels] = 1
     return one_hot_labels
 	
-def InitializeParams(X_train, Y_train, layers):
+def InitializeParams(X_train, Y_train, layers, sig):
 	W = []
 	b = []
 	for i, elm in enumerate(layers):
 		if i == 0:
 			np.random.seed(0)
-			W.append(np.random.normal(0, 0.1/np.sqrt(3072), (layers[i], 3072)))
+			W.append(np.random.normal(0, sig, (layers[i], 3072)))
 			b.append(np.zeros((layers[i], 1)))
 		else:
 			np.random.seed(0)
-			W.append(np.random.normal(0, 1/np.sqrt(50), (layers[i], layers[i-1])))
+			W.append(np.random.normal(0, sig, (layers[i], layers[i-1])))
 			b.append(np.zeros((layers[i], 1)))
 	print("W shape", len(W))
 	print("b shape", len(b))
@@ -205,7 +205,7 @@ def ComputeGradsNum(X, Y, W, b, lamda, h_delta):
 	return gra_W, gra_b
 
 def MiniBatchGDCyclicLR(X_train, Y_train, labels_train, X_val, Y_val, labels_val, W, b, lambda_, n_batch):
-	eta_s = int(5 * (10000 / n_batch))
+	eta_s = int(5 * (45000 / n_batch))
 	print(eta_s)
 	eta_min = 1e-5
 	eta_max = 1e-1
@@ -232,7 +232,7 @@ def MiniBatchGDCyclicLR(X_train, Y_train, labels_train, X_val, Y_val, labels_val
 			gamma.append(np.ones((elm.shape[0], 1)))
 			beta.append(np.zeros((elm.shape[0], 1)))
 			mean_global.append(np.zeros((elm.shape[0], 1)))
-			variance_global.append(np.zeros((elm.shape[0], 1)))
+			variance_global.append(np.ones((elm.shape[0], 1)))
 
 	for cycle in range(cycles):
 		for step in range(2*eta_s):
@@ -320,35 +320,35 @@ size = 10000
 lambda_ = 0.01 #0.016 beste! 0, 0, 0.1, 1
 # eta = 0.001 #0.1, 0.001, 0.001, 0.001
 n_batch = 100
-layers = [50, 30, 10] #[50, 30, 20, 20, 10, 10, 10, 10] 
+layers = [50, 50, 10] # 50, 30, 20, 20, 10, 10, 10, 10] # 
 
 training_data_1 = LoadBatch(training_data_1)
-# training_data_2 = LoadBatch(training_data_2)
-# training_data_3 = LoadBatch(training_data_3)
-# training_data_4 = LoadBatch(training_data_4)
-# training_data_5 = LoadBatch(training_data_5)
+training_data_2 = LoadBatch(training_data_2)
+training_data_3 = LoadBatch(training_data_3)
+training_data_4 = LoadBatch(training_data_4)
+training_data_5 = LoadBatch(training_data_5)
 
 test_data = LoadBatch(test_data_file)
 
 X_train_1, Y_train_1, labels_train_1 = Preprocess(training_data_1)
-# X_train_2, Y_train_2, labels_train_2 = Preprocess(training_data_2)
-# X_train_3, Y_train_3, labels_train_3 = Preprocess(training_data_3)
-# X_train_4, Y_train_4, labels_train_4 = Preprocess(training_data_4)
-# X_train_5, Y_train_5, labels_train_5 = Preprocess(training_data_5)
+X_train_2, Y_train_2, labels_train_2 = Preprocess(training_data_2)
+X_train_3, Y_train_3, labels_train_3 = Preprocess(training_data_3)
+X_train_4, Y_train_4, labels_train_4 = Preprocess(training_data_4)
+X_train_5, Y_train_5, labels_train_5 = Preprocess(training_data_5)
 
 X_test, Y_test, labels_test = Preprocess(test_data)
 
-data_size = 10000
-X_train, Y_train, labels_train = X_train_1[:,:data_size], Y_train_1[:,:data_size], labels_train_1[:data_size]
+# data_size = 10000
+# X_train, Y_train, labels_train = X_train_1[:,:data_size], Y_train_1[:,:data_size], labels_train_1[:data_size]
 
-# X_train = np.concatenate((X_train_1, X_train_2, X_train_3, X_train_4, X_train_5), axis=1)
-# Y_train = np.concatenate((Y_train_1, Y_train_2, Y_train_3, Y_train_4, Y_train_5), axis=1)
-# labels_train = np.concatenate((labels_train_1, labels_train_2, labels_train_3, labels_train_4, labels_train_5))
+X_train = np.concatenate((X_train_1, X_train_2, X_train_3, X_train_4, X_train_5), axis=1)
+Y_train = np.concatenate((Y_train_1, Y_train_2, Y_train_3, Y_train_4, Y_train_5), axis=1)
+labels_train = np.concatenate((labels_train_1, labels_train_2, labels_train_3, labels_train_4, labels_train_5))
 
-# print("train", X_train.shape, Y_train.shape, labels_train.shape)
+print("train", X_train.shape, Y_train.shape, labels_train.shape)
 
 #Randomly cut out 1000 samples for validation
-val_size = 500
+val_size = 5000
 np.random.seed(0)
 indices = np.random.permutation(X_train.shape[1])
 X_val = X_train[:, indices[:val_size]]
@@ -363,38 +363,38 @@ print("train", X_train.shape, Y_train.shape, labels_train.shape)
 print("val", X_val.shape, Y_val.shape, labels_val.shape)
 
 
-# # lambdas_ = [0.01, 0.013, 0.016, 0.02, 0.03]
-# # for lambda_ in lambdas_:
-# # 	print("@@@@@@@@@@@@@@@@@@@@@@@@@@")
-# # 	print("lambda: ", lambda_)
+# lambdas_ = [0.01]
+# for lambda_ in lambdas_:
+# 	print("@@@@@@@@@@@@@@@@@@@@@@@@@@")
+# 	print("lambda: ", lambda_)
+sigs = [1e-1, 1e-3, 1e-4]
+for sig in sigs:
+	W, b = InitializeParams(X_train, Y_train, layers, sig)
 
-W, b = InitializeParams(X_train, Y_train, layers)
+	res_dict = MiniBatchGDCyclicLR(X_train, Y_train, labels_train, X_val, Y_val, labels_val, W, b, lambda_, n_batch)
 
-res_dict = MiniBatchGDCyclicLR(X_train, Y_train, labels_train, X_val, Y_val, labels_val, W, b, lambda_, n_batch)
+	test_accuracy = ComputeAccuracy(X_test, labels_test, res_dict["W"], res_dict["b"], res_dict["gamma"], res_dict["beta"], m=res_dict["mean"], v=res_dict["variance"])
 
-test_accuracy = ComputeAccuracy(X_test, labels_test, res_dict["W"], res_dict["b"], res_dict["gamma"], res_dict["beta"], m=res_dict["mean"], v=res_dict["variance"])
+	print("Test accuracy: ", test_accuracy)
 
-print("Test accuracy: ", test_accuracy)
-
-#plot the cost to a new plot
-plt.figure()
-# plot the update list on the x-axis
-plt.plot(res_dict["update_list"], res_dict["costs_train"], label="Training cost")
-plt.plot(res_dict["update_list"], res_dict["costs_val"], label="Validation cost")
-plt.plot(res_dict["update_list"], res_dict["losses_train"], label="Training loss")
-plt.plot(res_dict["update_list"], res_dict["losses_val"], label="Validation loss")
-plt.title("Training cost vs Validation cost")
-plt.legend()
-plt.xlabel("Updates")
-plt.ylabel("Cost")
+	#plot the cost to a new plot
+	plt.figure()
+	plt.plot(res_dict["update_list"], res_dict["costs_train"], label="Training cost")
+	plt.plot(res_dict["update_list"], res_dict["costs_val"], label="Validation cost")
+	plt.plot(res_dict["update_list"], res_dict["losses_train"], label="Training loss")
+	plt.plot(res_dict["update_list"], res_dict["losses_val"], label="Validation loss")
+	plt.title("Training cost vs Validation cost")
+	plt.legend()
+	plt.xlabel("Updates")
+	plt.ylabel("Cost")
 
 
-#plot the accuracy to a new plot
-plt.figure()
-plt.plot(res_dict["update_list"], res_dict["accuracies_train"], label="Training accuracy")
-plt.plot(res_dict["update_list"], res_dict["accuracies_val"], label="Validation accuracy")
-plt.title("Training accuracy vs Validation accuracy")
-plt.legend()
-plt.xlabel("Updates")
-plt.ylabel("Accuracy")
-plt.show()
+	#plot the accuracy to a new plot
+	plt.figure()
+	plt.plot(res_dict["update_list"], res_dict["accuracies_train"], label="Training accuracy")
+	plt.plot(res_dict["update_list"], res_dict["accuracies_val"], label="Validation accuracy")
+	plt.title("Training accuracy vs Validation accuracy")
+	plt.legend()
+	plt.xlabel("Updates")
+	plt.ylabel("Accuracy")
+	plt.show()
