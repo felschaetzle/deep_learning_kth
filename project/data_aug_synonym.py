@@ -2,14 +2,14 @@ from nltk.corpus import wordnet
 import random
 synonyms = []
 
-for syn in wordnet.synsets("moving."):
-	for lemma in syn.lemmas():
-		synonyms.append(lemma.name())
+# for syn in wordnet.synsets("moving."):
+# 	for lemma in syn.lemmas():
+# 		synonyms.append(lemma.name())
 
-print(list(set(synonyms)))
+# print(list(set(synonyms)))
 
 
-fname = 'project/shakespeare'
+fname = 'project/shakespeare.txt'
 with open(fname, 'r') as f:
 	file_data = f.read()
 
@@ -97,7 +97,7 @@ print(new_file_data)
 #write new_file_data to txt file
 output_file = 'project/shakespeare_modified.txt'
 with open(output_file, 'w') as f:
-	f.write(new_file_data)
+	f.write(file_data + '\n' + new_file_data)
 print(f"Modified data written to {output_file}")
 
 
